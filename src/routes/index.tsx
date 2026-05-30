@@ -1,29 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { Hero, SpecialtiesGrid, GallerySection, ContactSection } from "@/components/home/HomeSections";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
+      { title: "MediCare · Turnos online y atención médica integral" },
+      { name: "description", content: "Reservá turnos online en 8+ especialidades médicas. Atención cercana, moderna y a tu medida." },
+      { property: "og:title", content: "MediCare · Consultorio Médico" },
+      { property: "og:description", content: "Reservá turnos online con nuestros profesionales en más de 8 especialidades." },
     ],
   }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="min-h-screen bg-background">
+      <SiteHeader />
+      <main>
+        <Hero />
+        <SpecialtiesGrid />
+        <GallerySection />
+        <ContactSection />
+      </main>
+      <SiteFooter />
     </div>
   );
 }
