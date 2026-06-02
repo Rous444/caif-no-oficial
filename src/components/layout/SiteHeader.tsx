@@ -44,6 +44,9 @@ export function SiteHeader() {
               {isStaff && (
                 <Button variant="ghost" onClick={() => router.navigate({ to: "/staff" })}>Agenda</Button>
               )}
+              {hasRole("admin") && (
+                <Button variant="ghost" onClick={() => router.navigate({ to: "/admin" })}>Admin</Button>
+              )}
               <Button variant="ghost" onClick={() => router.navigate({ to: "/dashboard" })}>Mi panel</Button>
               <Button variant="outline" onClick={() => signOut()}>Salir</Button>
             </>
