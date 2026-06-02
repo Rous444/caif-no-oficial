@@ -12,9 +12,10 @@ const navLinks = [
 ];
 
 export function SiteHeader() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, hasRole } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const isStaff = hasRole("medico") || hasRole("recepcionista") || hasRole("admin");
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -40,6 +41,9 @@ export function SiteHeader() {
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
             <>
+              {isStaff && (
+                <Button variant="ghost" onClick={() => router.navigate({ to: "/staff" })}>Agenda</Button>
+              )}
               <Button variant="ghost" onClick={() => router.navigate({ to: "/dashboard" })}>Mi panel</Button>
               <Button variant="outline" onClick={() => signOut()}>Salir</Button>
             </>
