@@ -168,11 +168,14 @@ function ApptRow({ appt, onCancel }: { appt: any; onCancel?: () => void }) {
 
 function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"form" | "review">("form");
   const [specialtyId, setSpecialtyId] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [date, setDate] = useState("");
   const [slot, setSlot] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const CLINIC_ADDRESS = "Av. Siempre Viva 1234, Piso 2 — CABA, Argentina";
 
   const { data: specialties } = useQuery({
     queryKey: ["specialties"],
@@ -260,6 +263,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
     else {
       toast.success("Turno solicitado");
       setOpen(false);
+      setStep("form");
       setSpecialtyId(""); setDoctorId(""); setDate(""); setSlot("");
       onBooked();
     }
@@ -273,11 +277,22 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
     );
   }
 
+  const specialty = specialties?.find((s) => s.id === specialtyId);
+  const doctor = doctors?.find((d) => d.id === doctorId);
+  const slotDate = slot ? new Date(slot) : null;
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-primary/50 p-4">
       <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-elegant">
-        <h3 className="font-display text-2xl">Nuevo turno</h3>
-        <p className="mt-1 text-sm text-muted-foreground">Elegí especialidad, profesional y horario</p>
+        <h3 className="font-display text-2xl">
+          {step === "form" ? "Nuevo turno" : "Confirmá tu turno"}
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {step === "form"
+            ? "Elegí especialidad, profesional y horario"
+            : "Revisá los datos antes de finalizar la reserva"}
+        </p>
+        {step === "form" ? (
         <div className="mt-5 space-y-4">
           <div>
             <Label>Especialidad</Label>
@@ -330,13 +345,66 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
             )}
           </div>
         </div>
+        ) : (
+          <div className="mt-5 space-y-3 rounded-xl border border-border bg-surface p-4 text-sm">
+            <SummaryRow label="Especialidad" value={specialty?.name ?? "—"} />
+            <SummaryRow label="Profesional" value={doctor?.full_name ?? "—"} />
+            <SummaryRow
+              label="Fecha"
+              value={
+                slotDate
+                  ? slotDate.toLocaleDateString("es-AR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : "—"
+              }
+            />
+            <SummaryRow
+              label="Hora"
+              value={
+                slotDate
+                  ? `${slotDate.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} hs (${SLOT_MIN} min)`
+                  : "—"
+              }
+            />
+            <SummaryRow label="Dirección" value={CLINIC_ADDRESS} />
+          </div>
+        )}
         <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={submit} disabled={saving || !specialtyId || !doctorId || !slot}>
-            {saving ? "Guardando..." : "Confirmar"}
-          </Button>
+          {step === "form" ? (
+            <>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button
+                onClick={() => setStep("review")}
+                disabled={!specialtyId || !doctorId || !slot}
+              >
+                Continuar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setStep("form")} disabled={saving}>
+                Volver
+              </Button>
+              <Button onClick={submit} disabled={saving}>
+                {saving ? "Guardando..." : "Confirmar reserva"}
+              </Button>
+            </>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium text-foreground capitalize">{value}</span>
     </div>
   );
 }
