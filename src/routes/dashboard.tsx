@@ -387,10 +387,10 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
           ) : (
             <>
               <Button variant="outline" onClick={() => setStep("form")} disabled={saving}>
-                Volver
+                Corregir
               </Button>
               <Button onClick={submit} disabled={saving}>
-                {saving ? "Guardando..." : "Confirmar reserva"}
+                {saving ? "Guardando..." : "Confirmar"}
               </Button>
             </>
           )}
