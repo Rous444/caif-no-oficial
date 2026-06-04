@@ -170,7 +170,8 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
   const [open, setOpen] = useState(false);
   const [specialtyId, setSpecialtyId] = useState("");
   const [doctorId, setDoctorId] = useState("");
-  const [datetime, setDatetime] = useState("");
+  const [date, setDate] = useState("");
+  const [slot, setSlot] = useState("");
   const [saving, setSaving] = useState(false);
 
   const { data: specialties } = useQuery({
@@ -184,16 +185,74 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
       (await supabase.from("doctors").select("*").eq("specialty_id", specialtyId).eq("is_active", true)).data ?? [],
   });
 
+  const SLOT_MIN = 30;
+
+  const { data: schedules } = useQuery({
+    queryKey: ["schedules", doctorId],
+    enabled: !!doctorId,
+    queryFn: async () =>
+      (await supabase.from("doctor_schedules").select("*").eq("doctor_id", doctorId)).data ?? [],
+  });
+
+  const { data: dayAppts } = useQuery({
+    queryKey: ["day-appts", doctorId, date],
+    enabled: !!doctorId && !!date,
+    queryFn: async () => {
+      const start = new Date(`${date}T00:00:00`);
+      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      const { data } = await supabase
+        .from("appointments")
+        .select("scheduled_at, duration_minutes, status")
+        .eq("doctor_id", doctorId)
+        .neq("status", "cancelado")
+        .gte("scheduled_at", start.toISOString())
+        .lt("scheduled_at", end.toISOString());
+      return data ?? [];
+    },
+  });
+
+  const slots = (() => {
+    if (!date || !schedules) return [] as { value: string; label: string }[];
+    const d = new Date(`${date}T00:00:00`);
+    const weekday = d.getDay();
+    const blocks = schedules.filter((s: any) => s.weekday === weekday);
+    if (blocks.length === 0) return [];
+    const occupied = (dayAppts ?? []).map((a: any) => {
+      const s = new Date(a.scheduled_at).getTime();
+      return [s, s + a.duration_minutes * 60000] as [number, number];
+    });
+    const now = Date.now();
+    const out: { value: string; label: string }[] = [];
+    for (const b of blocks) {
+      const [sh, sm] = String(b.start_time).split(":").map(Number);
+      const [eh, em] = String(b.end_time).split(":").map(Number);
+      const blockStart = new Date(d); blockStart.setHours(sh, sm, 0, 0);
+      const blockEnd = new Date(d); blockEnd.setHours(eh, em, 0, 0);
+      for (let t = blockStart.getTime(); t + SLOT_MIN * 60000 <= blockEnd.getTime(); t += SLOT_MIN * 60000) {
+        if (t < now) continue;
+        const end = t + SLOT_MIN * 60000;
+        const clash = occupied.some(([os, oe]) => os < end && oe > t);
+        if (clash) continue;
+        const dt = new Date(t);
+        out.push({
+          value: dt.toISOString(),
+          label: dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+        });
+      }
+    }
+    return out;
+  })();
+
   const submit = async () => {
-    if (!specialtyId || !doctorId || !datetime) return;
+    if (!specialtyId || !doctorId || !slot) return;
     setSaving(true);
     const { data: userRes } = await supabase.auth.getUser();
     const { error } = await supabase.from("appointments").insert({
       patient_id: userRes.user!.id,
       specialty_id: specialtyId,
       doctor_id: doctorId,
-      scheduled_at: new Date(datetime).toISOString(),
-      duration_minutes: 30,
+      scheduled_at: slot,
+      duration_minutes: SLOT_MIN,
       status: "pendiente",
     });
     setSaving(false);
@@ -201,7 +260,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
     else {
       toast.success("Turno solicitado");
       setOpen(false);
-      setSpecialtyId(""); setDoctorId(""); setDatetime("");
+      setSpecialtyId(""); setDoctorId(""); setDate(""); setSlot("");
       onBooked();
     }
   };
@@ -231,7 +290,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
           </div>
           <div>
             <Label>Profesional</Label>
-            <Select value={doctorId} onValueChange={setDoctorId} disabled={!specialtyId}>
+            <Select value={doctorId} onValueChange={(v) => { setDoctorId(v); setSlot(""); }} disabled={!specialtyId}>
               <SelectTrigger><SelectValue placeholder={specialtyId ? (doctors?.length ? "Elegí profesional" : "Sin profesionales aún") : "Elegí especialidad primero"} /></SelectTrigger>
               <SelectContent>
                 {doctors?.map((d) => <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}
@@ -239,13 +298,41 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
             </Select>
           </div>
           <div>
-            <Label>Fecha y hora</Label>
-            <Input type="datetime-local" value={datetime} onChange={(e) => setDatetime(e.target.value)} />
+            <Label>Fecha</Label>
+            <Input
+              type="date"
+              value={date}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => { setDate(e.target.value); setSlot(""); }}
+              disabled={!doctorId}
+            />
+          </div>
+          <div>
+            <Label>Horario disponible</Label>
+            {!doctorId || !date ? (
+              <p className="text-sm text-muted-foreground mt-1">Elegí profesional y fecha</p>
+            ) : slots.length === 0 ? (
+              <p className="text-sm text-muted-foreground mt-1">Sin horarios disponibles este día</p>
+            ) : (
+              <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                {slots.map((s) => (
+                  <Button
+                    key={s.value}
+                    type="button"
+                    size="sm"
+                    variant={slot === s.value ? "default" : "outline"}
+                    onClick={() => setSlot(s.value)}
+                  >
+                    {s.label}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={submit} disabled={saving || !specialtyId || !doctorId || !datetime}>
+          <Button onClick={submit} disabled={saving || !specialtyId || !doctorId || !slot}>
             {saving ? "Guardando..." : "Confirmar"}
           </Button>
         </div>
