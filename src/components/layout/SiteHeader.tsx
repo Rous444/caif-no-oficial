@@ -102,13 +102,19 @@ export function SiteHeader() {
           )}
         </div>
 
-        <button className="md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menú">
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        <button
+          className="md:hidden"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={open}
+          aria-controls="mobile-nav"
+        >
+          {open ? <X className="h-6 w-6" aria-hidden="true" /> : <Menu className="h-6 w-6" aria-hidden="true" />}
         </button>
       </div>
 
       {open && (
-        <div className="border-t border-border bg-background md:hidden">
+        <div id="mobile-nav" className="border-t border-border bg-background md:hidden">
           <div className="space-y-1 px-4 py-3">
             {navLinks.map((l) => (
               <a key={l.to} href={l.to} onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm hover:bg-muted">
