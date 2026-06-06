@@ -73,7 +73,7 @@
   --primary-foreground: oklch(0.98 0.005 240);
   --secondary: oklch(0.42 0.09 230);        /* #1a4a6e */
   --secondary-foreground: oklch(0.98 0.005 240);
-  --teal: oklch(0.62 0.10 200);             /* #2d8a9e */
+  --teal: oklch(0.48 0.10 200);             /* darker for AA contrast on light bg */
   --teal-foreground: oklch(0.98 0.005 240);
   --muted: oklch(0.955 0.012 230);
   --muted-foreground: oklch(0.45 0.04 250);
@@ -83,7 +83,7 @@
   --destructive-foreground: oklch(0.98 0.005 240);
   --border: oklch(0.92 0.012 230);
   --input: oklch(0.92 0.012 230);
-  --ring: oklch(0.62 0.10 200);
+  --ring: oklch(0.48 0.10 200);
   --chart-1: oklch(0.26 0.07 250);
   --chart-2: oklch(0.42 0.09 230);
   --chart-3: oklch(0.62 0.10 200);
@@ -91,12 +91,12 @@
   --chart-5: oklch(0.55 0.15 30);
   --sidebar: oklch(0.26 0.07 250);
   --sidebar-foreground: oklch(0.98 0.005 240);
-  --sidebar-primary: oklch(0.62 0.10 200);
+  --sidebar-primary: oklch(0.55 0.10 200);
   --sidebar-primary-foreground: oklch(0.98 0.005 240);
   --sidebar-accent: oklch(0.32 0.06 245);
   --sidebar-accent-foreground: oklch(0.98 0.005 240);
   --sidebar-border: oklch(0.32 0.06 245);
-  --sidebar-ring: oklch(0.62 0.10 200);
+  --sidebar-ring: oklch(0.48 0.10 200);
 }
 
 @layer base {
@@ -114,6 +114,40 @@
   h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
     letter-spacing: -0.01em;
+  }
+
+  /* Global keyboard-visible focus for native links and buttons that
+     don't already opt into focus-visible:ring (shadcn primitives keep
+     their own styles). */
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Skip link — visually hidden until focused */
+  .skip-link {
+    position: absolute;
+    left: 0.75rem;
+    top: 0.75rem;
+    z-index: 100;
+    transform: translateY(-150%);
+    transition: transform .15s ease;
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+    padding: 0.5rem 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    box-shadow: 0 8px 24px -10px rgb(0 0 0 / 0.35);
+  }
+  .skip-link:focus {
+    transform: translateY(0);
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
   }
 }
 

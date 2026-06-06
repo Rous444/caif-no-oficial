@@ -105,7 +105,7 @@ function AdminPanel() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="font-display text-4xl text-foreground">Administración</h1>
           <p className="mt-1 text-muted-foreground">
