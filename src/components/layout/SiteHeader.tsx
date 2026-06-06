@@ -1,7 +1,15 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { Activity, Menu, X } from "lucide-react";
+import { Activity, Menu, X, ChevronDown, CalendarDays, Shield, LayoutDashboard, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 
 const navLinks = [
@@ -41,14 +49,46 @@ export function SiteHeader() {
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
             <>
-              {isStaff && (
-                <Button variant="ghost" onClick={() => router.navigate({ to: "/staff" })}>Agenda</Button>
-              )}
-              {hasRole("admin") && (
-                <Button variant="ghost" onClick={() => router.navigate({ to: "/admin" })}>Admin</Button>
-              )}
-              <Button variant="ghost" onClick={() => router.navigate({ to: "/dashboard" })}>Mi panel</Button>
-              <Button variant="outline" onClick={() => signOut()}>Salir</Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="gap-1">
+                    Mis accesos
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Paciente</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => router.navigate({ to: "/dashboard" })}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Mi panel
+                  </DropdownMenuItem>
+                  {isStaff && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>Profesionales</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => router.navigate({ to: "/staff" })}>
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        Agenda
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {hasRole("admin") && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>Administración</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => router.navigate({ to: "/admin" })}>
+                        <Shield className="mr-2 h-4 w-4" />
+                        Admin
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => signOut()}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Salir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <>
