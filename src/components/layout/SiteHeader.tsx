@@ -51,15 +51,19 @@ export function SiteHeader() {
             <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="gap-1">
+                  <Button
+                    variant="ghost"
+                    className="gap-1"
+                    aria-label="Abrir menú de accesos"
+                  >
                     Mis accesos
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56" aria-label="Accesos por rol">
                   <DropdownMenuLabel>Paciente</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => router.navigate({ to: "/dashboard" })}>
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <LayoutDashboard className="mr-2 h-4 w-4" aria-hidden="true" />
                     Mi panel
                   </DropdownMenuItem>
                   {isStaff && (
@@ -67,7 +71,7 @@ export function SiteHeader() {
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>Profesionales</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => router.navigate({ to: "/staff" })}>
-                        <CalendarDays className="mr-2 h-4 w-4" />
+                        <CalendarDays className="mr-2 h-4 w-4" aria-hidden="true" />
                         Agenda
                       </DropdownMenuItem>
                     </>
@@ -77,14 +81,14 @@ export function SiteHeader() {
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>Administración</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => router.navigate({ to: "/admin" })}>
-                        <Shield className="mr-2 h-4 w-4" />
+                        <Shield className="mr-2 h-4 w-4" aria-hidden="true" />
                         Admin
                       </DropdownMenuItem>
                     </>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => signOut()}>
-                    <LogOut className="mr-2 h-4 w-4" />
+                    <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
                     Salir
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -98,13 +102,19 @@ export function SiteHeader() {
           )}
         </div>
 
-        <button className="md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menú">
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        <button
+          className="md:hidden"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={open}
+          aria-controls="mobile-nav"
+        >
+          {open ? <X className="h-6 w-6" aria-hidden="true" /> : <Menu className="h-6 w-6" aria-hidden="true" />}
         </button>
       </div>
 
       {open && (
-        <div className="border-t border-border bg-background md:hidden">
+        <div id="mobile-nav" className="border-t border-border bg-background md:hidden">
           <div className="space-y-1 px-4 py-3">
             {navLinks.map((l) => (
               <a key={l.to} href={l.to} onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm hover:bg-muted">
