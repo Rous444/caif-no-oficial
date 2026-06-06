@@ -53,7 +53,7 @@ function Dashboard() {
   const history = appointments?.filter((a) => new Date(a.scheduled_at) <= new Date() || a.status === "cancelado") ?? [];
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-dvh bg-surface">
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2">
@@ -73,7 +73,7 @@ function Dashboard() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h1 className="font-display text-4xl text-foreground">Mi panel</h1>

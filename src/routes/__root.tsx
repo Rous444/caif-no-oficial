@@ -120,6 +120,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <a href="#main-content" className="skip-link">
+          Saltar al contenido
+        </a>
         <Outlet />
         <Toaster richColors position="top-right" />
       </AuthProvider>
