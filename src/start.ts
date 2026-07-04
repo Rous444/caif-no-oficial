@@ -1,7 +1,5 @@
 import { createStart, createMiddleware } from "@tanstack/react-start";
-
 import { renderErrorPage } from "./lib/error-page";
-import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -18,7 +16,17 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   }
 });
 
+const authApiMiddleware = createMiddleware().server(
+  async ({ request, next }) => {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/api/auth/")) {
+      const { auth } = await import("./lib/auth.server");
+      return auth.handler(request);
+    }
+    return await next();
+  },
+);
+
 export const startInstance = createStart(() => ({
-  requestMiddleware: [errorMiddleware],
-  functionMiddleware: [attachSupabaseAuth],
+  requestMiddleware: [errorMiddleware, authApiMiddleware],
 }));

@@ -1,14 +1,21 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Calendar, Clock, LogOut, Plus, Stethoscope, User } from "lucide-react";
+import { Calendar, Clock, Plus, Stethoscope, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Mi panel · MediCare" }] }),
@@ -16,7 +23,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Dashboard() {
-  const { user, loading, signOut, roles } = useAuth();
+  const { user, loading, roles } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,7 +44,10 @@ function Dashboard() {
   });
 
   const cancelAppt = async (id: string) => {
-    const { error } = await supabase.from("appointments").update({ status: "cancelado" }).eq("id", id);
+    const { error } = await supabase
+      .from("appointments")
+      .update({ status: "cancelado" })
+      .eq("id", id);
     if (error) toast.error(error.message);
     else {
       toast.success("Turno cancelado");
@@ -46,78 +56,72 @@ function Dashboard() {
   };
 
   if (loading || !user) {
-    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Cargando...
+      </div>
+    );
   }
 
-  const upcoming = appointments?.filter((a) => a.status !== "cancelado" && new Date(a.scheduled_at) > new Date()) ?? [];
-  const history = appointments?.filter((a) => new Date(a.scheduled_at) <= new Date() || a.status === "cancelado") ?? [];
+  const upcoming =
+    appointments?.filter(
+      (a) => a.status !== "cancelado" && new Date(a.scheduled_at) > new Date(),
+    ) ?? [];
+  const history =
+    appointments?.filter(
+      (a) => new Date(a.scheduled_at) <= new Date() || a.status === "cancelado",
+    ) ?? [];
 
   return (
-    <div className="min-h-dvh bg-surface">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground">
-              <Activity className="h-5 w-5" />
-            </span>
-            <span className="font-display text-lg">MediCare</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              {user.email} · {roles.join(", ") || "paciente"}
-            </span>
-            <Button variant="outline" size="sm" onClick={signOut}>
-              <LogOut className="mr-2 h-4 w-4" /> Salir
-            </Button>
-          </div>
+    <DashboardLayout title="Mi panel" description="Gestioná tus turnos y tu información">
+      <div className="mb-8 flex items-end justify-between">
+        <div />
+        <BookAppointmentDialog onBooked={refetch} />
+      </div>
+
+      <section className="grid gap-6 md:grid-cols-3">
+        <StatCard icon={Calendar} label="Próximos turnos" value={upcoming.length} />
+        <StatCard icon={Clock} label="Historial" value={history.length} />
+        <StatCard icon={User} label="Mi rol" value={roles[0] ?? "paciente"} />
+      </section>
+
+      <section className="mt-10">
+        <h2 className="font-display text-2xl text-foreground">Próximos turnos</h2>
+        <div className="mt-4 space-y-3">
+          {upcoming.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center text-muted-foreground">
+              No tenés turnos próximos. <span className="text-primary">¡Reservá uno!</span>
+            </div>
+          )}
+          {upcoming.map((a) => (
+            <ApptRow key={a.id} appt={a} onCancel={() => cancelAppt(a.id)} />
+          ))}
         </div>
-      </header>
+      </section>
 
-      <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-end justify-between">
-          <div>
-            <h1 className="font-display text-4xl text-foreground">Mi panel</h1>
-            <p className="mt-1 text-muted-foreground">Gestioná tus turnos y tu información</p>
-          </div>
-          <BookAppointmentDialog onBooked={refetch} />
-        </div>
-
-        <section className="grid gap-6 md:grid-cols-3">
-          <StatCard icon={Calendar} label="Próximos turnos" value={upcoming.length} />
-          <StatCard icon={Clock} label="Historial" value={history.length} />
-          <StatCard icon={User} label="Mi rol" value={roles[0] ?? "paciente"} />
-        </section>
-
+      {history.length > 0 && (
         <section className="mt-10">
-          <h2 className="font-display text-2xl text-foreground">Próximos turnos</h2>
+          <h2 className="font-display text-2xl text-foreground">Historial</h2>
           <div className="mt-4 space-y-3">
-            {upcoming.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center text-muted-foreground">
-                No tenés turnos próximos. <span className="text-primary">¡Reservá uno!</span>
-              </div>
-            )}
-            {upcoming.map((a) => (
-              <ApptRow key={a.id} appt={a} onCancel={() => cancelAppt(a.id)} />
+            {history.map((a) => (
+              <ApptRow key={a.id} appt={a} />
             ))}
           </div>
         </section>
-
-        {history.length > 0 && (
-          <section className="mt-10">
-            <h2 className="font-display text-2xl text-foreground">Historial</h2>
-            <div className="mt-4 space-y-3">
-              {history.map((a) => (
-                <ApptRow key={a.id} appt={a} />
-              ))}
-            </div>
-          </section>
-        )}
-      </main>
-    </div>
+      )}
+    </DashboardLayout>
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string | number }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Calendar;
+  label: string;
+  value: string | number;
+}) {
   return (
     <div className="rounded-2xl border border-border bg-background p-6">
       <div className="flex items-center justify-between">
@@ -155,11 +159,15 @@ function ApptRow({ appt, onCancel }: { appt: any; onCancel?: () => void }) {
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <span className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusColors[appt.status]}`}>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusColors[appt.status]}`}
+        >
           {appt.status}
         </span>
         {onCancel && appt.status !== "cancelado" && (
-          <Button size="sm" variant="outline" onClick={onCancel}>Cancelar</Button>
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            Cancelar
+          </Button>
         )}
       </div>
     </div>
@@ -179,13 +187,21 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   const { data: specialties } = useQuery({
     queryKey: ["specialties"],
-    queryFn: async () => (await supabase.from("specialties").select("*").eq("is_active", true).order("name")).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("specialties").select("*").eq("is_active", true).order("name")).data ??
+      [],
   });
   const { data: doctors } = useQuery({
     queryKey: ["doctors", specialtyId],
     enabled: !!specialtyId,
     queryFn: async () =>
-      (await supabase.from("doctors").select("*").eq("specialty_id", specialtyId).eq("is_active", true)).data ?? [],
+      (
+        await supabase
+          .from("doctors")
+          .select("*")
+          .eq("specialty_id", specialtyId)
+          .eq("is_active", true)
+      ).data ?? [],
   });
 
   const SLOT_MIN = 30;
@@ -229,9 +245,15 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
     for (const b of blocks) {
       const [sh, sm] = String(b.start_time).split(":").map(Number);
       const [eh, em] = String(b.end_time).split(":").map(Number);
-      const blockStart = new Date(d); blockStart.setHours(sh, sm, 0, 0);
-      const blockEnd = new Date(d); blockEnd.setHours(eh, em, 0, 0);
-      for (let t = blockStart.getTime(); t + SLOT_MIN * 60000 <= blockEnd.getTime(); t += SLOT_MIN * 60000) {
+      const blockStart = new Date(d);
+      blockStart.setHours(sh, sm, 0, 0);
+      const blockEnd = new Date(d);
+      blockEnd.setHours(eh, em, 0, 0);
+      for (
+        let t = blockStart.getTime();
+        t + SLOT_MIN * 60000 <= blockEnd.getTime();
+        t += SLOT_MIN * 60000
+      ) {
         if (t < now) continue;
         const end = t + SLOT_MIN * 60000;
         const clash = occupied.some(([os, oe]) => os < end && oe > t);
@@ -264,7 +286,10 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
       toast.success("Turno solicitado");
       setOpen(false);
       setStep("form");
-      setSpecialtyId(""); setDoctorId(""); setDate(""); setSlot("");
+      setSpecialtyId("");
+      setDoctorId("");
+      setDate("");
+      setSlot("");
       onBooked();
     }
   };
@@ -293,58 +318,96 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
             : "Revisá los datos antes de finalizar la reserva"}
         </p>
         {step === "form" ? (
-        <div className="mt-5 space-y-4">
-          <div>
-            <Label>Especialidad</Label>
-            <Select value={specialtyId} onValueChange={(v) => { setSpecialtyId(v); setDoctorId(""); }}>
-              <SelectTrigger><SelectValue placeholder="Elegí una especialidad" /></SelectTrigger>
-              <SelectContent>
-                {specialties?.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="mt-5 space-y-4">
+            <div>
+              <Label>Especialidad</Label>
+              <Select
+                value={specialtyId}
+                onValueChange={(v) => {
+                  setSpecialtyId(v);
+                  setDoctorId("");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Elegí una especialidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {specialties?.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Profesional</Label>
+              <Select
+                value={doctorId}
+                onValueChange={(v) => {
+                  setDoctorId(v);
+                  setSlot("");
+                }}
+                disabled={!specialtyId}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      specialtyId
+                        ? doctors?.length
+                          ? "Elegí profesional"
+                          : "Sin profesionales aún"
+                        : "Elegí especialidad primero"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {doctors?.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Fecha</Label>
+              <Input
+                type="date"
+                value={date}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  setSlot("");
+                }}
+                disabled={!doctorId}
+              />
+            </div>
+            <div>
+              <Label>Horario disponible</Label>
+              {!doctorId || !date ? (
+                <p className="text-sm text-muted-foreground mt-1">Elegí profesional y fecha</p>
+              ) : slots.length === 0 ? (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Sin horarios disponibles este día
+                </p>
+              ) : (
+                <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                  {slots.map((s) => (
+                    <Button
+                      key={s.value}
+                      type="button"
+                      size="sm"
+                      variant={slot === s.value ? "default" : "outline"}
+                      onClick={() => setSlot(s.value)}
+                    >
+                      {s.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <Label>Profesional</Label>
-            <Select value={doctorId} onValueChange={(v) => { setDoctorId(v); setSlot(""); }} disabled={!specialtyId}>
-              <SelectTrigger><SelectValue placeholder={specialtyId ? (doctors?.length ? "Elegí profesional" : "Sin profesionales aún") : "Elegí especialidad primero"} /></SelectTrigger>
-              <SelectContent>
-                {doctors?.map((d) => <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Fecha</Label>
-            <Input
-              type="date"
-              value={date}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => { setDate(e.target.value); setSlot(""); }}
-              disabled={!doctorId}
-            />
-          </div>
-          <div>
-            <Label>Horario disponible</Label>
-            {!doctorId || !date ? (
-              <p className="text-sm text-muted-foreground mt-1">Elegí profesional y fecha</p>
-            ) : slots.length === 0 ? (
-              <p className="text-sm text-muted-foreground mt-1">Sin horarios disponibles este día</p>
-            ) : (
-              <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                {slots.map((s) => (
-                  <Button
-                    key={s.value}
-                    type="button"
-                    size="sm"
-                    variant={slot === s.value ? "default" : "outline"}
-                    onClick={() => setSlot(s.value)}
-                  >
-                    {s.label}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
         ) : (
           <div className="mt-5 space-y-3 rounded-xl border border-border bg-surface p-4 text-sm">
             <SummaryRow label="Especialidad" value={specialty?.name ?? "—"} />
@@ -376,7 +439,9 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
         <div className="mt-6 flex justify-end gap-2">
           {step === "form" ? (
             <>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
               <Button
                 onClick={() => setStep("review")}
                 disabled={!specialtyId || !doctorId || !slot}

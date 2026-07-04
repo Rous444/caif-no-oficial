@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/auth";
+import { PasswordChangeGuard } from "@/components/PasswordChangeGuard";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -80,10 +81,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "MediCare · Consultorio Médico" },
-      { name: "description", content: "Reservá turnos online con nuestros profesionales en más de 8 especialidades médicas." },
+      {
+        name: "description",
+        content:
+          "Reservá turnos online con nuestros profesionales en más de 8 especialidades médicas.",
+      },
       { name: "author", content: "MediCare" },
       { property: "og:title", content: "MediCare · Consultorio Médico" },
-      { property: "og:description", content: "Reservá turnos online con nuestros profesionales en más de 8 especialidades médicas." },
+      {
+        property: "og:description",
+        content:
+          "Reservá turnos online con nuestros profesionales en más de 8 especialidades médicas.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -91,6 +100,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: appCss,
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Fira+Sans:wght@300;400;500;600;700&display=swap",
       },
     ],
   }),
@@ -120,11 +133,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <a href="#main-content" className="skip-link">
-          Saltar al contenido
-        </a>
-        <Outlet />
-        <Toaster richColors position="top-right" />
+        <PasswordChangeGuard>
+          <a href="#main-content" className="skip-link">
+            Saltar al contenido
+          </a>
+          <Outlet />
+          <Toaster richColors position="top-right" />
+        </PasswordChangeGuard>
       </AuthProvider>
     </QueryClientProvider>
   );
