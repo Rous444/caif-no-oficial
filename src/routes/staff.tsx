@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 export const Route = createFileRoute("/staff")({
-  head: () => ({ meta: [{ title: "Agenda · MediCare" }] }),
+  head: () => ({ meta: [{ title: "Agenda · CAIF" }] }),
   component: StaffPanel,
 });
 

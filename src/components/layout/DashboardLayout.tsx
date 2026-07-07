@@ -20,7 +20,7 @@ export function DashboardLayout({ children, title, description }: DashboardLayou
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground">
               <Activity className="h-5 w-5" />
             </span>
-            <span className="font-display text-lg">MediCare</span>
+            <span className="font-display text-lg">CAIF</span>
           </Link>
           <div className="flex items-center gap-3">
             {user && (

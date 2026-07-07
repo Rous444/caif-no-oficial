@@ -80,14 +80,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "MediCare · Consultorio Médico" },
+      { title: "CAIF · Consultorio Médico" },
       {
         name: "description",
         content:
           "Reservá turnos online con nuestros profesionales en más de 8 especialidades médicas.",
       },
-      { name: "author", content: "MediCare" },
-      { property: "og:title", content: "MediCare · Consultorio Médico" },
+      { name: "author", content: "CAIF" },
+      { property: "og:title", content: "CAIF · Consultorio Médico" },
       {
         property: "og:description",
         content:

@@ -11,7 +11,7 @@ import { Activity, Lock } from "lucide-react";
 import FadeContent from "@/components/FadeContent";
 
 export const Route = createFileRoute("/change-password")({
-  head: () => ({ meta: [{ title: "Cambiar contraseña · MediCare" }] }),
+  head: () => ({ meta: [{ title: "Cambiar contraseña · CAIF" }] }),
   component: ChangePasswordPage,
 });
 

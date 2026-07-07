@@ -11,6 +11,7 @@ export const auth = betterAuth({
     schema,
   }),
   plugins: [tanstackStartCookies()],
+  trustedOrigins: ["http://localhost:8080"],
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,

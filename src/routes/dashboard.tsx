@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "Mi panel · MediCare" }] }),
+  head: () => ({ meta: [{ title: "Mi panel · CAIF" }] }),
   component: Dashboard,
 });
 

@@ -11,13 +11,13 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "MediCare · Turnos online y atención médica integral" },
+      { title: "CAIF · Turnos online y atención médica integral" },
       {
         name: "description",
         content:
           "Reservá turnos online en 8+ especialidades médicas. Atención cercana, moderna y a tu medida.",
       },
-      { property: "og:title", content: "MediCare · Consultorio Médico" },
+      { property: "og:title", content: "CAIF · Consultorio Médico" },
       {
         property: "og:description",
         content: "Reservá turnos online con nuestros profesionales en más de 8 especialidades.",

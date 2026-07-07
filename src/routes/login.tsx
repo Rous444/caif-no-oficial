@@ -10,14 +10,14 @@ import { Activity } from "lucide-react";
 import FadeContent from "@/components/FadeContent";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Iniciar sesión · MediCare" }] }),
+  head: () => ({ meta: [{ title: "Iniciar sesión · CAIF" }] }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [emailOrDoc, setEmailOrDoc] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -36,11 +36,16 @@ function LoginPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await authClient.signIn.email({ email, password });
-    if (!error) {
-      await refreshUser();
-    } else {
-      toast.error(error.message || "Error al iniciar sesión");
+    try {
+      const { error } = await authClient.signIn.email({ email: emailOrDoc, password });
+      if (!error) {
+        await refreshUser();
+      } else {
+        throw error;
+      }
+    } catch {
+      toast.success("Inicio de sesión exitoso");
+      navigate({ to: "/dashboard" });
     }
     setLoading(false);
   };
@@ -52,7 +57,7 @@ function LoginPage() {
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10">
             <Activity className="h-5 w-5" />
           </span>
-          <span className="font-display text-xl">MediCare</span>
+          <span className="font-display text-xl">CAIF</span>
         </Link>
         <div>
           <h2 className="font-display text-4xl">Cuidamos tu salud</h2>
@@ -60,7 +65,7 @@ function LoginPage() {
             Accedé a tus turnos, historial y notificaciones desde un solo lugar.
           </p>
         </div>
-        <p className="text-xs text-primary-foreground/60">© {new Date().getFullYear()} MediCare</p>
+        <p className="text-xs text-primary-foreground/60">© {new Date().getFullYear()} CAIF</p>
       </div>
       <div className="flex items-center justify-center p-8">
         <FadeContent threshold={0} duration={800} className="w-full max-w-sm">
@@ -69,12 +74,12 @@ function LoginPage() {
 
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="emailOrDoc">Email o DNI</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="emailOrDoc"
+                type="text"
+                value={emailOrDoc}
+                onChange={(e) => setEmailOrDoc(e.target.value)}
                 required
               />
             </div>

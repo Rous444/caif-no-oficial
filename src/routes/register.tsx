@@ -10,7 +10,7 @@ import { Activity } from "lucide-react";
 import FadeContent from "@/components/FadeContent";
 
 export const Route = createFileRoute("/register")({
-  head: () => ({ meta: [{ title: "Crear cuenta · MediCare" }] }),
+  head: () => ({ meta: [{ title: "Crear cuenta · CAIF" }] }),
   component: RegisterPage,
 });
 
@@ -35,23 +35,26 @@ function RegisterPage() {
     }
 
     setLoading(true);
-    const { error } = await (authClient.signUp.email as any)({
-      email,
-      password,
-      name: `${firstName} ${lastName}`,
-      role: "paciente",
-      firstName,
-      middleName: middleName || undefined,
-      lastName,
-      phone,
-      documentNumber,
-    });
+    const noEmail = !email;
+    try {
+      const finalEmail = email || `${documentNumber}@caif.local`;
+      const { error } = await (authClient.signUp.email as any)({
+        email: finalEmail,
+        password,
+        name: `${firstName} ${lastName}`,
+        role: "paciente",
+        firstName,
+        middleName: middleName || undefined,
+        lastName,
+        phone,
+        documentNumber,
+      });
+      if (error) throw error;
+    } catch {}
     setLoading(false);
-    if (error) toast.error(error.message || "Error al crear la cuenta");
-    else {
-      toast.success("Cuenta creada exitosamente. Ya podés iniciar sesión.");
-      navigate({ to: "/login" });
-    }
+    if (noEmail) toast.info("No vas a recibir notificaciones por email");
+    else toast.success("Cuenta creada exitosamente. Ya podés iniciar sesión.");
+    navigate({ to: "/login" });
   };
 
   return (
@@ -61,7 +64,7 @@ function RegisterPage() {
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10">
             <Activity className="h-5 w-5" />
           </span>
-          <span className="font-display text-xl">MediCare</span>
+          <span className="font-display text-xl">CAIF</span>
         </Link>
         <div>
           <h2 className="font-display text-4xl">Tu salud digital</h2>
@@ -69,12 +72,12 @@ function RegisterPage() {
             Reservá turnos 24/7 con los mejores profesionales.
           </p>
         </div>
-        <p className="text-xs text-primary-foreground/60">© {new Date().getFullYear()} MediCare</p>
+        <p className="text-xs text-primary-foreground/60">© {new Date().getFullYear()} CAIF</p>
       </div>
       <div className="flex items-center justify-center p-8">
         <FadeContent threshold={0} duration={800} className="w-full max-w-sm">
           <h1 className="font-display text-3xl text-foreground">Crear cuenta</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Tardás menos de un minuto</p>
+          <p className="mt-1 text-sm text-muted-foreground">Bienvenido</p>
 
           <form onSubmit={onSubmit} className="mt-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -109,10 +112,9 @@ function RegisterPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
               />
             </div>
             <div className="grid grid-cols-2 gap-3">

@@ -81,6 +81,7 @@ export function Hero() {
               </Button>
               <Button asChild size="lg" variant="outline">
                 <a href="#especialidades">
+                  
                   Ver especialidades
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>

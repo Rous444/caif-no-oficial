@@ -13,7 +13,7 @@ import { useAuth, type AppRole } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Administración · MediCare" }] }),
+  head: () => ({ meta: [{ title: "Administración ·CAIF" }] }),
   component: AdminPanel,
 });
 
