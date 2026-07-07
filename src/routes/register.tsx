@@ -8,6 +8,7 @@ import { validatePasswordStrength } from "@/lib/password";
 import { toast } from "sonner";
 import { Activity } from "lucide-react";
 import FadeContent from "@/components/FadeContent";
+import { createPatientRecord } from "@/lib/api/admin-users.functions";
 
 export const Route = createFileRoute("/register")({
   head: () => ({ meta: [{ title: "Crear cuenta · CAIF" }] }),
@@ -50,6 +51,7 @@ function RegisterPage() {
         documentNumber,
       });
       if (error) throw error;
+      createPatientRecord({ data: { email: finalEmail, documentNumber } }).catch(() => {});
     } catch {}
     setLoading(false);
     if (noEmail) toast.info("No vas a recibir notificaciones por email");

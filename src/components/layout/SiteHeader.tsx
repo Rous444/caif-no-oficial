@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CalendarDays,
   Shield,
+  Stethoscope,
   LayoutDashboard,
   LogOut,
 } from "lucide-react";
@@ -32,8 +33,6 @@ export function SiteHeader() {
   const { user, signOut, hasRole } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const isStaff = hasRole("medico") || hasRole("recepcionista") || hasRole("admin");
-
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -77,13 +76,23 @@ export function SiteHeader() {
                     <LayoutDashboard className="mr-2 h-4 w-4" aria-hidden="true" />
                     Mi panel
                   </DropdownMenuItem>
-                  {isStaff && (
+                  {hasRole("medico") && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuLabel>Profesionales</DropdownMenuLabel>
+                      <DropdownMenuLabel>Médico</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => router.navigate({ to: "/doctor" })}>
+                        <Stethoscope className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Mi agenda
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {(hasRole("recepcionista") || hasRole("admin")) && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>Staff</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => router.navigate({ to: "/staff" })}>
                         <CalendarDays className="mr-2 h-4 w-4" aria-hidden="true" />
-                        Agenda
+                        Agenda general
                       </DropdownMenuItem>
                     </>
                   )}

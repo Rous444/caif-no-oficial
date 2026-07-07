@@ -28,7 +28,8 @@ function LoginPage() {
     } else {
       const role = user.role;
       if (role === "admin") navigate({ to: "/admin" });
-      else if (role === "medico" || role === "recepcionista") navigate({ to: "/staff" });
+      else if (role === "medico") navigate({ to: "/doctor" });
+      else if (role === "recepcionista") navigate({ to: "/staff" });
       else navigate({ to: "/dashboard" });
     }
   }, [user, navigate]);
@@ -38,14 +39,13 @@ function LoginPage() {
     setLoading(true);
     try {
       const { error } = await authClient.signIn.email({ email: emailOrDoc, password });
-      if (!error) {
-        await refreshUser();
-      } else {
-        throw error;
+      if (error) {
+        toast.error(error.message || "Credenciales inválidas");
+        return;
       }
+      await refreshUser();
     } catch {
-      toast.success("Inicio de sesión exitoso");
-      navigate({ to: "/dashboard" });
+      toast.error("Error al iniciar sesión");
     }
     setLoading(false);
   };

@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StaffRouteImport } from './routes/staff'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as RecepcionistaRouteImport } from './routes/recepcionista'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -27,9 +29,19 @@ const RegisterRoute = RegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecepcionistaRoute = RecepcionistaRouteImport.update({
+  id: '/recepcionista',
+  path: '/recepcionista',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DoctorRoute = DoctorRouteImport.update({
+  id: '/doctor',
+  path: '/doctor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -58,7 +70,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/change-password': typeof ChangePasswordRoute
   '/dashboard': typeof DashboardRoute
+  '/doctor': typeof DoctorRoute
   '/login': typeof LoginRoute
+  '/recepcionista': typeof RecepcionistaRoute
   '/register': typeof RegisterRoute
   '/staff': typeof StaffRoute
 }
@@ -67,7 +81,9 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/change-password': typeof ChangePasswordRoute
   '/dashboard': typeof DashboardRoute
+  '/doctor': typeof DoctorRoute
   '/login': typeof LoginRoute
+  '/recepcionista': typeof RecepcionistaRoute
   '/register': typeof RegisterRoute
   '/staff': typeof StaffRoute
 }
@@ -77,7 +93,9 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/change-password': typeof ChangePasswordRoute
   '/dashboard': typeof DashboardRoute
+  '/doctor': typeof DoctorRoute
   '/login': typeof LoginRoute
+  '/recepcionista': typeof RecepcionistaRoute
   '/register': typeof RegisterRoute
   '/staff': typeof StaffRoute
 }
@@ -88,7 +106,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/change-password'
     | '/dashboard'
+    | '/doctor'
     | '/login'
+    | '/recepcionista'
     | '/register'
     | '/staff'
   fileRoutesByTo: FileRoutesByTo
@@ -97,7 +117,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/change-password'
     | '/dashboard'
+    | '/doctor'
     | '/login'
+    | '/recepcionista'
     | '/register'
     | '/staff'
   id:
@@ -106,7 +128,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/change-password'
     | '/dashboard'
+    | '/doctor'
     | '/login'
+    | '/recepcionista'
     | '/register'
     | '/staff'
   fileRoutesById: FileRoutesById
@@ -116,7 +140,9 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   ChangePasswordRoute: typeof ChangePasswordRoute
   DashboardRoute: typeof DashboardRoute
+  DoctorRoute: typeof DoctorRoute
   LoginRoute: typeof LoginRoute
+  RecepcionistaRoute: typeof RecepcionistaRoute
   RegisterRoute: typeof RegisterRoute
   StaffRoute: typeof StaffRoute
 }
@@ -137,11 +163,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recepcionista': {
+      id: '/recepcionista'
+      path: '/recepcionista'
+      fullPath: '/recepcionista'
+      preLoaderRoute: typeof RecepcionistaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/doctor': {
+      id: '/doctor'
+      path: '/doctor'
+      fullPath: '/doctor'
+      preLoaderRoute: typeof DoctorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -180,7 +220,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   ChangePasswordRoute: ChangePasswordRoute,
   DashboardRoute: DashboardRoute,
+  DoctorRoute: DoctorRoute,
   LoginRoute: LoginRoute,
+  RecepcionistaRoute: RecepcionistaRoute,
   RegisterRoute: RegisterRoute,
   StaffRoute: StaffRoute,
 }

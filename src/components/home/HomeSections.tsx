@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { getActiveSpecialties } from "@/lib/api/specialties.functions";
+import { getActiveGalleryImages } from "@/lib/api/gallery.functions";
 import {
   ArrowRight,
   Calendar,
@@ -74,21 +76,19 @@ export function Hero() {
                 size="lg"
                 className="bg-primary text-primary-foreground hover:bg-secondary"
               >
-                <Link to="/book">
+                <Link to="/dashboard">
                   <Calendar className="mr-2 h-5 w-5" />
                   Solicitar turno
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
                 <a href="#especialidades">
-                  
                   Ver especialidades
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
               </Button>
             </div>
           </FadeContent>
-          <FadeContent threshold={0.2} duration={0} delay={0}></FadeContent>
         </div>
         <FadeContent threshold={0.2} duration={1000} delay={300}>
           <div className="relative">
@@ -110,15 +110,7 @@ export function Hero() {
 export function SpecialtiesGrid() {
   const { data: specialties } = useQuery({
     queryKey: ["specialties-active"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("specialties")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => getActiveSpecialties(),
   });
 
   return (
@@ -179,15 +171,7 @@ export function GallerySection() {
   ];
   const { data } = useQuery({
     queryKey: ["gallery"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("gallery_images")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => getActiveGalleryImages(),
   });
   const images = data && data.length > 0 ? data : fallback;
 

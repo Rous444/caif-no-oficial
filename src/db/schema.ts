@@ -1,4 +1,14 @@
-import { pgTable, text, uuid, boolean, integer, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  uuid,
+  boolean,
+  integer,
+  timestamp,
+  uniqueIndex,
+  primaryKey,
+} from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -84,17 +94,29 @@ export const specialties = pgTable("specialties", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const doctorSpecialties = pgTable(
+  "doctor_specialties",
+  {
+    doctorId: uuid("doctor_id")
+      .notNull()
+      .references(() => doctors.id, { onDelete: "cascade" }),
+    specialtyId: uuid("specialty_id")
+      .notNull()
+      .references(() => specialties.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("doctor_specialty_idx").on(t.doctorId, t.specialtyId)],
+);
+
 export const doctors = pgTable("doctors", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  specialtyId: uuid("specialty_id")
-    .notNull()
-    .references(() => specialties.id),
+  specialtyId: uuid("specialty_id").references(() => specialties.id),
   licenseNumber: text("license_number"),
   bio: text("bio"),
   slotMinutes: integer("slot_minutes").default(30),
+  insuranceCompanies: text("insurance_companies").array(),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -139,6 +161,21 @@ export const galleryImages = pgTable("gallery_images", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const medicalRecords = pgTable("medical_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  doctorId: uuid("doctor_id")
+    .notNull()
+    .references(() => doctors.id, { onDelete: "cascade" }),
+  patientId: text("patient_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileData: text("file_data").notNull(),
+  fileSize: integer("file_size").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const notifications = pgTable("notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id")
@@ -151,3 +188,49 @@ export const notifications = pgTable("notifications", {
   appointmentId: uuid("appointment_id").references(() => appointments.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const doctorsRelations = relations(doctors, ({ one, many }) => ({
+  specialty: one(specialties, { fields: [doctors.specialtyId], references: [specialties.id] }),
+  user: one(user, { fields: [doctors.userId], references: [user.id] }),
+  specialties: many(doctorSpecialties),
+  schedules: many(doctorSchedules),
+  medicalRecords: many(medicalRecords),
+}));
+
+export const doctorSpecialtiesRelations = relations(doctorSpecialties, ({ one }) => ({
+  doctor: one(doctors, { fields: [doctorSpecialties.doctorId], references: [doctors.id] }),
+  specialty: one(specialties, {
+    fields: [doctorSpecialties.specialtyId],
+    references: [specialties.id],
+  }),
+}));
+
+export const userRelations = relations(user, ({ many }) => ({
+  patients: many(patients),
+  doctors: many(doctors),
+  notifications: many(notifications),
+  medicalRecords: many(medicalRecords),
+}));
+
+export const medicalRecordsRelations = relations(medicalRecords, ({ one }) => ({
+  doctor: one(doctors, { fields: [medicalRecords.doctorId], references: [doctors.id] }),
+  patient: one(user, { fields: [medicalRecords.patientId], references: [user.id] }),
+}));
+
+export const patientsRelations = relations(patients, ({ one }) => ({
+  user: one(user, { fields: [patients.userId], references: [user.id] }),
+}));
+
+export const appointmentsRelations = relations(appointments, ({ one }) => ({
+  patient: one(user, { fields: [appointments.patientId], references: [user.id] }),
+  doctor: one(doctors, { fields: [appointments.doctorId], references: [doctors.id] }),
+  specialty: one(specialties, { fields: [appointments.specialtyId], references: [specialties.id] }),
+}));
+
+export const doctorSchedulesRelations = relations(doctorSchedules, ({ one }) => ({
+  doctor: one(doctors, { fields: [doctorSchedules.doctorId], references: [doctors.id] }),
+}));
+
+export const specialtiesRelations = relations(specialties, ({ many }) => ({
+  doctors: many(doctorSpecialties),
+}));

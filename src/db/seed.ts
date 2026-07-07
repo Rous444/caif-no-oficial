@@ -15,7 +15,12 @@ async function seed() {
         icon: "Stethoscope",
         sortOrder: 1,
       },
-      { name: "Pediatría", description: "Salud infantil y adolescente", icon: "Baby", sortOrder: 2 },
+      {
+        name: "Pediatría",
+        description: "Salud infantil y adolescente",
+        icon: "Baby",
+        sortOrder: 2,
+      },
       {
         name: "Cardiología",
         description: "Salud del corazón y sistema circulatorio",
@@ -38,7 +43,11 @@ async function seed() {
   console.log("Seeding admin user...");
 
   const adminEmail = "admin@medicare.com";
-  const existingAdmin = await db.select({ id: user.id }).from(user).where(eq(user.email, adminEmail)).limit(1);
+  const existingAdmin = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, adminEmail))
+    .limit(1);
 
   if (existingAdmin.length > 0) {
     console.log(`  Admin user already exists (${adminEmail}) — skipping`);

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Clock, Plus, Stethoscope, User } from "lucide-react";
+import { Calendar, Clock, Plus, Stethoscope, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 
@@ -16,6 +16,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import {
+  getMyAppointments,
+  cancelAppointment,
+  bookAppointment,
+  getDayAppointments,
+} from "@/lib/api/appointments.functions";
+import { getActiveSpecialties } from "@/lib/api/specialties.functions";
+import { getDoctorsBySpecialty } from "@/lib/api/admin-doctors.functions";
+import { getDoctorSchedule } from "@/lib/api/doctor-schedule.functions";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Mi panel · CAIF" }] }),
@@ -34,24 +43,17 @@ function Dashboard() {
     queryKey: ["my-appointments", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("appointments")
-        .select("id, scheduled_at, status, duration_minutes, doctors(full_name), specialties(name)")
-        .order("scheduled_at", { ascending: true });
-      if (error) throw error;
-      return data;
+      return getMyAppointments({ data: { userId: user!.id } });
     },
   });
 
   const cancelAppt = async (id: string) => {
-    const { error } = await supabase
-      .from("appointments")
-      .update({ status: "cancelado" })
-      .eq("id", id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await cancelAppointment({ data: { appointmentId: id } });
       toast.success("Turno cancelado");
       refetch();
+    } catch {
+      toast.error("Error al cancelar el turno");
     }
   };
 
@@ -64,12 +66,11 @@ function Dashboard() {
   }
 
   const upcoming =
-    appointments?.filter(
-      (a) => a.status !== "cancelado" && new Date(a.scheduled_at) > new Date(),
-    ) ?? [];
+    appointments?.filter((a) => a.status !== "cancelado" && new Date(a.scheduledAt) > new Date()) ??
+    [];
   const history =
     appointments?.filter(
-      (a) => new Date(a.scheduled_at) <= new Date() || a.status === "cancelado",
+      (a) => new Date(a.scheduledAt) <= new Date() || a.status === "cancelado",
     ) ?? [];
 
   return (
@@ -134,7 +135,11 @@ function StatCard({
 }
 
 function ApptRow({ appt, onCancel }: { appt: any; onCancel?: () => void }) {
-  const date = new Date(appt.scheduled_at);
+  const date = new Date(appt.scheduledAt);
+  const docName = appt.doctor?.user
+    ? `${appt.doctor.user.firstName} ${appt.doctor.user.lastName}`
+    : (appt.doctor?.user?.name ?? "Profesional");
+  const specialtyName = appt.doctor?.specialty?.name ?? appt.specialty?.name ?? "";
   const statusColors: Record<string, string> = {
     pendiente: "bg-accent/30 text-secondary",
     confirmado: "bg-teal/20 text-teal",
@@ -150,7 +155,8 @@ function ApptRow({ appt, onCancel }: { appt: any; onCancel?: () => void }) {
         </div>
         <div>
           <div className="font-medium text-foreground">
-            {appt.doctors?.full_name ?? "Profesional"} · {appt.specialties?.name}
+            {docName}
+            {specialtyName ? ` · ${specialtyName}` : ""}
           </div>
           <div className="text-sm text-muted-foreground">
             {date.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })} ·{" "}
@@ -175,6 +181,7 @@ function ApptRow({ appt, onCancel }: { appt: any; onCancel?: () => void }) {
 }
 
 function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"form" | "review">("form");
   const [specialtyId, setSpecialtyId] = useState("");
@@ -187,64 +194,45 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   const { data: specialties } = useQuery({
     queryKey: ["specialties"],
-    queryFn: async () =>
-      (await supabase.from("specialties").select("*").eq("is_active", true).order("name")).data ??
-      [],
+    queryFn: () => getActiveSpecialties(),
   });
+
   const { data: doctors } = useQuery({
     queryKey: ["doctors", specialtyId],
     enabled: !!specialtyId,
-    queryFn: async () =>
-      (
-        await supabase
-          .from("doctors")
-          .select("*")
-          .eq("specialty_id", specialtyId)
-          .eq("is_active", true)
-      ).data ?? [],
+    queryFn: () => getDoctorsBySpecialty({ data: { specialtyId } }),
   });
 
-  const SLOT_MIN = 30;
+  const doctor = doctors?.find((d) => d.id === doctorId);
+  const SLOT_MIN = doctor?.slotMinutes ?? 30;
 
   const { data: schedules } = useQuery({
     queryKey: ["schedules", doctorId],
     enabled: !!doctorId,
-    queryFn: async () =>
-      (await supabase.from("doctor_schedules").select("*").eq("doctor_id", doctorId)).data ?? [],
+    queryFn: () => getDoctorSchedule({ data: { doctorId } }),
   });
 
   const { data: dayAppts } = useQuery({
     queryKey: ["day-appts", doctorId, date],
     enabled: !!doctorId && !!date,
-    queryFn: async () => {
-      const start = new Date(`${date}T00:00:00`);
-      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-      const { data } = await supabase
-        .from("appointments")
-        .select("scheduled_at, duration_minutes, status")
-        .eq("doctor_id", doctorId)
-        .neq("status", "cancelado")
-        .gte("scheduled_at", start.toISOString())
-        .lt("scheduled_at", end.toISOString());
-      return data ?? [];
-    },
+    queryFn: () => getDayAppointments({ data: { doctorId, date } }),
   });
 
   const slots = (() => {
-    if (!date || !schedules) return [] as { value: string; label: string }[];
+    if (!date || !schedules) return [] as { value: string; label: string; available: boolean }[];
     const d = new Date(`${date}T00:00:00`);
-    const weekday = d.getDay();
+    const weekday = (d.getDay() + 6) % 7;
     const blocks = schedules.filter((s: any) => s.weekday === weekday);
     if (blocks.length === 0) return [];
     const occupied = (dayAppts ?? []).map((a: any) => {
-      const s = new Date(a.scheduled_at).getTime();
-      return [s, s + a.duration_minutes * 60000] as [number, number];
+      const s = new Date(a.scheduledAt).getTime();
+      return [s, s + (a.durationMinutes ?? SLOT_MIN) * 60000] as [number, number];
     });
     const now = Date.now();
-    const out: { value: string; label: string }[] = [];
+    const out: { value: string; label: string; available: boolean }[] = [];
     for (const b of blocks) {
-      const [sh, sm] = String(b.start_time).split(":").map(Number);
-      const [eh, em] = String(b.end_time).split(":").map(Number);
+      const [sh, sm] = String(b.startTime).split(":").map(Number);
+      const [eh, em] = String(b.endTime).split(":").map(Number);
       const blockStart = new Date(d);
       blockStart.setHours(sh, sm, 0, 0);
       const blockEnd = new Date(d);
@@ -256,12 +244,12 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
       ) {
         if (t < now) continue;
         const end = t + SLOT_MIN * 60000;
-        const clash = occupied.some(([os, oe]) => os < end && oe > t);
-        if (clash) continue;
+        const clash = occupied.some(([os, oe]: [number, number]) => os < end && oe > t);
         const dt = new Date(t);
         out.push({
           value: dt.toISOString(),
           label: dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+          available: !clash,
         });
       }
     }
@@ -269,20 +257,18 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
   })();
 
   const submit = async () => {
-    if (!specialtyId || !doctorId || !slot) return;
+    if (!specialtyId || !doctorId || !slot || !user) return;
     setSaving(true);
-    const { data: userRes } = await supabase.auth.getUser();
-    const { error } = await supabase.from("appointments").insert({
-      patient_id: userRes.user!.id,
-      specialty_id: specialtyId,
-      doctor_id: doctorId,
-      scheduled_at: slot,
-      duration_minutes: SLOT_MIN,
-      status: "pendiente",
-    });
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await bookAppointment({
+        data: {
+          patientId: user.id,
+          doctorId,
+          specialtyId,
+          scheduledAt: slot,
+          durationMinutes: SLOT_MIN,
+        },
+      });
       toast.success("Turno solicitado");
       setOpen(false);
       setStep("form");
@@ -291,7 +277,10 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
       setDate("");
       setSlot("");
       onBooked();
+    } catch {
+      toast.error("Error al reservar el turno");
     }
+    setSaving(false);
   };
 
   if (!open) {
@@ -303,7 +292,6 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
   }
 
   const specialty = specialties?.find((s) => s.id === specialtyId);
-  const doctor = doctors?.find((d) => d.id === doctorId);
   const slotDate = slot ? new Date(slot) : null;
 
   return (
@@ -364,12 +352,51 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
                 <SelectContent>
                   {doctors?.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
-                      {d.full_name}
+                      {d.user?.firstName} {d.user?.lastName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            {doctor?.insuranceCompanies && doctor.insuranceCompanies.length > 0 && (
+              <div className="rounded-xl bg-muted/30 p-3">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                  <Building2 className="h-3 w-3" /> Obras sociales aceptadas
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {doctor.insuranceCompanies.map((ins: string) => (
+                    <span
+                      key={ins}
+                      className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary"
+                    >
+                      {ins}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {schedules && schedules.length > 0 && (
+              <div>
+                <Label>Horarios de atención</Label>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((name, i) => {
+                    const active = schedules.some((s) => s.weekday === i);
+                    return (
+                      <span
+                        key={i}
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          active
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-muted text-muted-foreground opacity-40"
+                        }`}
+                      >
+                        {name}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div>
               <Label>Fecha</Label>
               <Input
@@ -393,17 +420,26 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
                 </p>
               ) : (
                 <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                  {slots.map((s) => (
-                    <Button
-                      key={s.value}
-                      type="button"
-                      size="sm"
-                      variant={slot === s.value ? "default" : "outline"}
-                      onClick={() => setSlot(s.value)}
-                    >
-                      {s.label}
-                    </Button>
-                  ))}
+                  {slots.map((s) =>
+                    s.available ? (
+                      <Button
+                        key={s.value}
+                        type="button"
+                        size="sm"
+                        variant={slot === s.value ? "default" : "outline"}
+                        onClick={() => setSlot(s.value)}
+                      >
+                        {s.label}
+                      </Button>
+                    ) : (
+                      <div
+                        key={s.value}
+                        className="flex items-center justify-center rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive"
+                      >
+                        Ocupado
+                      </div>
+                    ),
+                  )}
                 </div>
               )}
             </div>
@@ -411,7 +447,10 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
         ) : (
           <div className="mt-5 space-y-3 rounded-xl border border-border bg-surface p-4 text-sm">
             <SummaryRow label="Especialidad" value={specialty?.name ?? "—"} />
-            <SummaryRow label="Profesional" value={doctor?.full_name ?? "—"} />
+            <SummaryRow
+              label="Profesional"
+              value={doctor?.user ? `${doctor.user.firstName} ${doctor.user.lastName}` : "—"}
+            />
             <SummaryRow
               label="Fecha"
               value={
