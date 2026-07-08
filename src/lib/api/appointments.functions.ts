@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { db } from "@/db";
 import { appointments, doctors } from "@/db/schema";
-import { eq, and, gte, lt, desc } from "drizzle-orm";
+import { eq, and, gte, lt, desc, ne } from "drizzle-orm";
 
 export const getMyAppointments = createServerFn({ method: "POST" })
   .inputValidator(z.object({ userId: z.string() }))
@@ -91,14 +91,17 @@ export const bookAppointment = createServerFn({ method: "POST" })
     const scheduledDate = new Date(data.scheduledAt);
     const endDate = new Date(scheduledDate.getTime() + data.durationMinutes * 60000);
 
-    const existing = await db.query.appointments.findFirst({
-      where: and(eq(appointments.doctorId, data.doctorId), eq(appointments.status, "pendiente")),
+    const existing = await db.query.appointments.findMany({
+      where: and(
+        eq(appointments.doctorId, data.doctorId),
+        ne(appointments.status, "cancelado"),
+      ),
     });
 
-    if (existing) {
-      const existingStart = new Date(existing.scheduledAt);
+    for (const appt of existing) {
+      const existingStart = new Date(appt.scheduledAt);
       const existingEnd = new Date(
-        existingStart.getTime() + (existing.durationMinutes ?? 30) * 60000,
+        existingStart.getTime() + (appt.durationMinutes ?? 30) * 60000,
       );
       if (scheduledDate < existingEnd && endDate > existingStart) {
         throw new Error("El horario seleccionado ya está reservado para este profesional");
@@ -156,6 +159,7 @@ export const getDayAppointments = createServerFn({ method: "POST" })
           eq(appointments.doctorId, data.doctorId),
           gte(appointments.scheduledAt, dayStart),
           lt(appointments.scheduledAt, dayEnd),
+          ne(appointments.status, "cancelado"),
         ),
       );
   });

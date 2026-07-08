@@ -7,6 +7,7 @@ import {
   GallerySection,
   ContactSection,
 } from "@/components/home/HomeSections";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -28,11 +29,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { user, roles } = useAuth();
   return (
     <div className="min-h-dvh bg-background">
       <SiteHeader />
       <main id="main-content" tabIndex={-1}>
-        <Hero />
+        <Hero user={user} roles={roles} />
         <SpecialtiesGrid />
         <GallerySection />
         <ContactSection />

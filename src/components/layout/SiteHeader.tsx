@@ -22,13 +22,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 
-const navLinks = [
-  { to: "/", label: "Inicio" },
-  { to: "/#especialidades", label: "Especialidades" },
-  { to: "/#galeria", label: "Galería" },
-  { to: "/#contacto", label: "Contacto" },
-];
-
 export function SiteHeader() {
   const { user, signOut, hasRole } = useAuth();
   const router = useRouter();
@@ -47,18 +40,6 @@ export function SiteHeader() {
             </div>
           </div>
         </Link>
-
-        <nav className="hidden items-center gap-7 md:flex">
-          {navLinks.map((l) => (
-            <a
-              key={l.to}
-              href={l.to}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {l.label}
-            </a>
-          ))}
-        </nav>
 
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
@@ -86,7 +67,7 @@ export function SiteHeader() {
                       </DropdownMenuItem>
                     </>
                   )}
-                  {(hasRole("recepcionista") || hasRole("admin")) && (
+                  {hasRole("recepcionista") && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>Staff</DropdownMenuLabel>
@@ -142,16 +123,6 @@ export function SiteHeader() {
       {open && (
         <div id="mobile-nav" className="border-t border-border bg-background md:hidden">
           <div className="space-y-1 px-4 py-3">
-            {navLinks.map((l) => (
-              <a
-                key={l.to}
-                href={l.to}
-                onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm hover:bg-muted"
-              >
-                {l.label}
-              </a>
-            ))}
             <div className="flex gap-2 pt-2">
               {user ? (
                 <>

@@ -34,6 +34,7 @@ export const Route = createFileRoute("/dashboard")({
 function Dashboard() {
   const { user, loading, roles } = useAuth();
   const navigate = useNavigate();
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
@@ -102,12 +103,23 @@ function Dashboard() {
 
       {history.length > 0 && (
         <section className="mt-10">
-          <h2 className="font-display text-2xl text-foreground">Historial</h2>
-          <div className="mt-4 space-y-3">
-            {history.map((a) => (
-              <ApptRow key={a.id} appt={a} />
-            ))}
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-2xl text-foreground">Historial</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              {showHistory ? "Ocultar historial" : `Mostrar historial (${history.length})`}
+            </Button>
           </div>
+          {showHistory && (
+            <div className="mt-4 space-y-3">
+              {history.map((a) => (
+                <ApptRow key={a.id} appt={a} />
+              ))}
+            </div>
+          )}
         </section>
       )}
     </DashboardLayout>
@@ -220,36 +232,41 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   const slots = (() => {
     if (!date || !schedules) return [] as { value: string; label: string; available: boolean }[];
-    const d = new Date(`${date}T00:00:00`);
+    const [yr, mo, dy] = date.split("-").map(Number);
+    const d = new Date(yr, mo - 1, dy);
     const weekday = (d.getDay() + 6) % 7;
     const blocks = schedules.filter((s: any) => s.weekday === weekday);
     if (blocks.length === 0) return [];
-    const occupied = (dayAppts ?? []).map((a: any) => {
-      const s = new Date(a.scheduledAt).getTime();
-      return [s, s + (a.durationMinutes ?? SLOT_MIN) * 60000] as [number, number];
-    });
-    const now = Date.now();
+
+    const occupiedRanges = (dayAppts ?? [])
+      .filter((a: any) => a.scheduledAt)
+      .map((a: any) => {
+        const apptDate = new Date(a.scheduledAt);
+        const startMin = apptDate.getHours() * 60 + apptDate.getMinutes();
+        const dur = a.durationMinutes ?? SLOT_MIN;
+        return { start: startMin, end: startMin + dur };
+      });
+
+    const now = new Date();
+    const isToday =
+      now.getFullYear() === yr && now.getMonth() === mo - 1 && now.getDate() === dy;
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
     const out: { value: string; label: string; available: boolean }[] = [];
     for (const b of blocks) {
       const [sh, sm] = String(b.startTime).split(":").map(Number);
       const [eh, em] = String(b.endTime).split(":").map(Number);
-      const blockStart = new Date(d);
-      blockStart.setHours(sh, sm, 0, 0);
-      const blockEnd = new Date(d);
-      blockEnd.setHours(eh, em, 0, 0);
-      for (
-        let t = blockStart.getTime();
-        t + SLOT_MIN * 60000 <= blockEnd.getTime();
-        t += SLOT_MIN * 60000
-      ) {
-        if (t < now) continue;
-        const end = t + SLOT_MIN * 60000;
-        const clash = occupied.some(([os, oe]: [number, number]) => os < end && oe > t);
-        const dt = new Date(t);
+      const blockStartMin = sh * 60 + sm;
+      const blockEndMin = eh * 60 + em;
+      for (let m = blockStartMin; m + SLOT_MIN <= blockEndMin; m += SLOT_MIN) {
+        if (isToday && m <= currentMinutes) continue;
+        const slotEnd = m + SLOT_MIN;
+        const isTaken = occupiedRanges.some((r) => m < r.end && slotEnd > r.start);
+        const slotDate = new Date(yr, mo - 1, dy, Math.floor(m / 60), m % 60);
         out.push({
-          value: dt.toISOString(),
-          label: dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
-          available: !clash,
+          value: slotDate.toISOString(),
+          label: slotDate.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+          available: !isTaken,
         });
       }
     }
@@ -277,8 +294,8 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
       setDate("");
       setSlot("");
       onBooked();
-    } catch {
-      toast.error("Error al reservar el turno");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al reservar el turno");
     }
     setSaving(false);
   };

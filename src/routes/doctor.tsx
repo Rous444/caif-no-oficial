@@ -18,6 +18,7 @@ import {
   Eye,
   Trash2,
   Search,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -273,6 +274,24 @@ function DayView({
   onUpdateStatus: (id: string, status: DoctorAppt["status"]) => void;
   onChanged: () => void;
 }) {
+  const [patientSearch, setPatientSearch] = useState("");
+  const [historyPatient, setHistoryPatient] = useState<DoctorAppt["patient"] | null>(null);
+
+  const filtered = patientSearch.trim()
+    ? appts.filter((a) => {
+        const name = a.patient
+          ? `${a.patient.firstName} ${a.patient.lastName}`.toLowerCase()
+          : "";
+        return name.includes(patientSearch.toLowerCase());
+      })
+    : appts;
+
+  const patientAppointments = historyPatient
+    ? appts.filter(
+        (a) => a.patient?.id === historyPatient.id,
+      )
+    : [];
+
   if (appts.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center text-muted-foreground">
@@ -281,11 +300,71 @@ function DayView({
     );
   }
   return (
-    <div className="space-y-3">
-      {appts.map((a) => (
-        <ApptCard key={a.id} appt={a} onUpdateStatus={onUpdateStatus} onChanged={onChanged} />
-      ))}
-    </div>
+    <>
+      <div className="relative mb-4 max-w-xs">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Buscar paciente..."
+          value={patientSearch}
+          onChange={(e) => setPatientSearch(e.target.value)}
+        />
+      </div>
+      {filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center text-muted-foreground">
+          No se encontraron turnos para "{patientSearch}".
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((a) => (
+            <ApptCard
+              key={a.id}
+              appt={a}
+              onUpdateStatus={onUpdateStatus}
+              onChanged={onChanged}
+              onShowHistory={(p) => setHistoryPatient(p)}
+            />
+          ))}
+        </div>
+      )}
+
+      <Dialog open={!!historyPatient} onOpenChange={(v) => { if (!v) setHistoryPatient(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Historial de {historyPatient?.firstName} {historyPatient?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 space-y-2 overflow-y-auto">
+            {patientAppointments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Solo tiene este turno.</p>
+            ) : (
+              patientAppointments.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between rounded-lg border border-border p-3 text-sm"
+                >
+                  <div>
+                    <div className="font-medium">{fmtDate(new Date(a.scheduledAt))}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {fmtTime(new Date(a.scheduledAt))} · {a.durationMinutes ?? 30} min · {a.specialty?.name}
+                    </div>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusBg(a.status)}`}>
+                    {a.status}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryPatient(null)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -369,10 +448,12 @@ function ApptCard({
   appt,
   onUpdateStatus,
   onChanged,
+  onShowHistory,
 }: {
   appt: DoctorAppt;
   onUpdateStatus: (id: string, status: DoctorAppt["status"]) => void;
   onChanged: () => void;
+  onShowHistory?: (patient: DoctorAppt["patient"]) => void;
 }) {
   const date = new Date(appt.scheduledAt);
   const [reschedOpen, setReschedOpen] = useState(false);
@@ -410,6 +491,11 @@ function ApptCard({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {appt.patient && onShowHistory && (
+          <Button size="sm" variant="outline" onClick={() => onShowHistory(appt.patient)}>
+            <History className="mr-1 h-4 w-4" /> Historial
+          </Button>
+        )}
         <span
           className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusBg(appt.status)}`}
         >

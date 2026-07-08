@@ -17,8 +17,12 @@ import {
   Bone,
   Brain,
   Eye,
+  LayoutDashboard,
+  CalendarDays,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { AppRole } from "@/lib/auth";
 
 import heroImg from "@/assets/clinic-hero.jpg";
 import g1 from "@/assets/clinic-1.jpg";
@@ -40,9 +44,47 @@ const iconMap: Record<string, typeof Stethoscope> = {
   Eye,
 };
 
-export function Hero() {
+export function Hero({ user, roles }: { user: any | null; roles: AppRole[] }) {
+  const isAuthed = !!user;
+  const role = roles[0];
+
   return (
     <section className="relative overflow-hidden">
+      {isAuthed && (
+        <div className="bg-gradient-primary/10 border-b border-primary/20">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-primary" />
+              <span className="text-muted-foreground">
+                Conectado como <span className="font-medium text-foreground capitalize">{role}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {role === "paciente" && (
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/dashboard">
+                    <LayoutDashboard className="mr-1.5 h-4 w-4" /> Mi panel
+                  </Link>
+                </Button>
+              )}
+              {role === "medico" && (
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/doctor">
+                    <Stethoscope className="mr-1.5 h-4 w-4" /> Mi agenda
+                  </Link>
+                </Button>
+              )}
+              {(role === "recepcionista" || role === "admin") && (
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/staff">
+                    <CalendarDays className="mr-1.5 h-4 w-4" /> Agenda general
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 md:grid-cols-2 md:py-24 lg:px-8">
         <div>
           <FadeContent threshold={0.2} duration={600}>
@@ -53,7 +95,7 @@ export function Hero() {
           </FadeContent>
           <FadeContent threshold={0.2} duration={800} delay={150}>
             <SplitText
-              text="Tu salud, en las mejores manos."
+              text={isAuthed ? "Bienvenido de vuelta." : "Tu salud, en las mejores manos."}
               tag="h1"
               className="mt-5 font-display text-5xl leading-[1.05] text-foreground md:text-6xl"
               splitType="words"
@@ -65,28 +107,78 @@ export function Hero() {
           </FadeContent>
           <FadeContent threshold={0.2} duration={800} delay={300}>
             <p className="mt-5 max-w-xl text-base text-muted-foreground md:text-lg">
-              Reservá turnos online con nuestros profesionales en más de 15 especialidades. Atención
-              cercana, moderna y a tu medida.
+              {isAuthed
+                ? "Gestioná tus turnos, accedé a tu agenda y mantenete al día con tu salud."
+                : "Reservá turnos online con nuestros profesionales en más de 15 especialidades. Atención cercana, moderna y a tu medida."}
             </p>
           </FadeContent>
           <FadeContent threshold={0.2} duration={800} delay={450}>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button
-                asChild
-                size="lg"
-                className="bg-primary text-primary-foreground hover:bg-secondary"
-              >
-                <Link to="/dashboard">
-                  <Calendar className="mr-2 h-5 w-5" />
-                  Solicitar turno
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <a href="#especialidades">
-                  Ver especialidades
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </a>
-              </Button>
+              {isAuthed ? (
+                <>
+                  {role === "paciente" && (
+                    <Button
+                      asChild
+                      size="lg"
+                      className="bg-primary text-primary-foreground hover:bg-secondary"
+                    >
+                      <Link to="/dashboard">
+                        <Calendar className="mr-2 h-5 w-5" />
+                        Mis turnos
+                      </Link>
+                    </Button>
+                  )}
+                  {role === "medico" && (
+                    <Button
+                      asChild
+                      size="lg"
+                      className="bg-primary text-primary-foreground hover:bg-secondary"
+                    >
+                      <Link to="/doctor">
+                        <CalendarDays className="mr-2 h-5 w-5" />
+                        Ver agenda
+                      </Link>
+                    </Button>
+                  )}
+                  {(role === "recepcionista" || role === "admin") && (
+                    <Button
+                      asChild
+                      size="lg"
+                      className="bg-primary text-primary-foreground hover:bg-secondary"
+                    >
+                      <Link to="/staff">
+                        <CalendarDays className="mr-2 h-5 w-5" />
+                        Gestión de turnos
+                      </Link>
+                    </Button>
+                  )}
+                  <Button asChild size="lg" variant="outline">
+                    <a href="#especialidades">
+                      Ver especialidades
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    asChild
+                    size="lg"
+                    className="bg-primary text-primary-foreground hover:bg-secondary"
+                  >
+                    <Link to="/dashboard">
+                      <Calendar className="mr-2 h-5 w-5" />
+                      Solicitar turno
+                    </Link>
+                  </Button>
+                  <Button asChild size="lg" variant="outline">
+                    <a href="#especialidades">
+                      Ver especialidades
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                </>
+              )}
             </div>
           </FadeContent>
         </div>
@@ -164,16 +256,19 @@ export function SpecialtiesGrid() {
 
 export function GallerySection() {
   const fallback = [
-    { id: "1", url: g1, title: "Consultorio moderno" },
-    { id: "2", url: g2, title: "Recepción" },
-    { id: "3", url: g3, title: "Pasillos" },
-    { id: "4", url: g4, title: "Pediatría" },
+    { id: "default-1", url: g1, title: "Consultorio moderno" },
+    { id: "default-2", url: g2, title: "Recepción" },
+    { id: "default-3", url: g3, title: "Pasillos" },
+    { id: "default-4", url: g4, title: "Pediatría" },
   ];
   const { data } = useQuery({
     queryKey: ["gallery"],
     queryFn: () => getActiveGalleryImages(),
   });
-  const images = data && data.length > 0 ? data : fallback;
+  const dbUrls = new Set((data ?? []).map((img) => img.url));
+  const images = data && data.length > 0
+    ? [...data, ...fallback.filter((f) => !dbUrls.has(f.url))]
+    : fallback;
 
   return (
     <section id="galeria" className="bg-surface py-20">

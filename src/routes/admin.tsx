@@ -49,7 +49,7 @@ import {
   updateUserActive,
   deleteUser,
 } from "@/lib/api/admin-users.functions";
-import { getAllGalleryImages, deleteGalleryImage } from "@/lib/api/gallery.functions";
+import { GalleryTab } from "@/components/admin/GalleryTab";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Administración · CAIF" }] }),
@@ -542,11 +542,21 @@ function SpecialtyDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Icono</Label>
-              <Input
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                placeholder="Stethoscope"
-              />
+              <Select value={icon || "Stethoscope"} onValueChange={setIcon}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar icono" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Stethoscope">Estetoscopio</SelectItem>
+                  <SelectItem value="Heart">Corazón</SelectItem>
+                  <SelectItem value="Baby">Bebé</SelectItem>
+                  <SelectItem value="Sparkles">Destellos</SelectItem>
+                  <SelectItem value="Flower2">Flor</SelectItem>
+                  <SelectItem value="Bone">Hueso</SelectItem>
+                  <SelectItem value="Brain">Cerebro</SelectItem>
+                  <SelectItem value="Eye">Ojo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Orden</Label>
@@ -863,56 +873,5 @@ function DoctorDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function GalleryTab() {
-  const queryClient = useQueryClient();
-
-  const { data: images } = useQuery({
-    queryKey: ["gallery"],
-    queryFn: () => getAllGalleryImages(),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteGalleryImage({ data: { id } }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["gallery"] });
-      toast.success("Imagen eliminada");
-    },
-  });
-
-  return (
-    <div className="mt-6 space-y-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {images?.map((img) => (
-          <div
-            key={img.id}
-            className="group relative overflow-hidden rounded-2xl border border-border"
-          >
-            <img
-              src={img.url}
-              alt={img.title ?? ""}
-              className="aspect-square w-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center gap-2 bg-primary/60 opacity-0 transition-opacity group-hover:opacity-100">
-              <Button size="sm" variant="destructive" onClick={() => remove.mutate(img.id)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-            {img.title && (
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-                <p className="text-xs text-white">{img.title}</p>
-              </div>
-            )}
-          </div>
-        ))}
-        {(!images || images.length === 0) && (
-          <div className="col-span-full rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
-            No hay imágenes en la galería.
-          </div>
-        )}
-      </div>
-    </div>
   );
 }

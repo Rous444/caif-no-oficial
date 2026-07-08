@@ -27,8 +27,52 @@ export const createGalleryImage = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const [newImage] = await db.insert(galleryImages).values(data).returning();
+    const [newImage] = await db
+      .insert(galleryImages)
+      .values({
+        url: data.url,
+        title: data.title || null,
+        sortOrder: data.sortOrder ?? 0,
+        isActive: true,
+      })
+      .returning();
     return newImage;
+  });
+
+export const updateGalleryImage = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      id: z.string().uuid().optional(),
+      url: z.string().url(),
+      title: z.string().max(200).optional(),
+      sortOrder: z.number().int().min(0).max(999),
+      useNewId: z.boolean().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    if (data.id) {
+      const [updated] = await db
+        .update(galleryImages)
+        .set({
+          url: data.url,
+          title: data.title || null,
+          sortOrder: data.sortOrder,
+        })
+        .where(eq(galleryImages.id, data.id))
+        .returning();
+      return updated;
+    } else {
+      const [newImage] = await db
+        .insert(galleryImages)
+        .values({
+          url: data.url,
+          title: data.title || null,
+          sortOrder: data.sortOrder,
+          isActive: true,
+        })
+        .returning();
+      return newImage;
+    }
   });
 
 export const deleteGalleryImage = createServerFn({ method: "POST" })

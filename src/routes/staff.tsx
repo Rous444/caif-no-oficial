@@ -636,7 +636,8 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
     const loadSlots = async () => {
       try {
         const schedule = await getDoctorSchedule({ data: { doctorId: selectedDoctorId } });
-        const date = new Date(selectedDate);
+        const [yr, mo, dy] = selectedDate.split("-").map(Number);
+        const date = new Date(yr, mo - 1, dy);
         const weekday = (date.getDay() + 6) % 7;
         const daySchedule = schedule.find((s: { weekday: number }) => s.weekday === weekday);
         if (!daySchedule) {
@@ -646,28 +647,24 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
         const existing = await getDayAppointments({
           data: { doctorId: selectedDoctorId, date: selectedDate },
         });
-        const existingSlots = existing.map(
-          (a: { scheduledAt: Date; durationMinutes: number | null }) => {
-            const start = new Date(a.scheduledAt).getTime();
-            const end = start + (a.durationMinutes ?? 30) * 60000;
-            return { start, end };
-          },
-        );
+        const occupiedRanges = existing
+          .filter((a: { scheduledAt: Date | string }) => a.scheduledAt)
+          .map((a: { scheduledAt: Date | string; durationMinutes: number | null }) => {
+            const apptDate = new Date(a.scheduledAt);
+            const startMin = apptDate.getHours() * 60 + apptDate.getMinutes();
+            const dur = a.durationMinutes ?? 30;
+            return { start: startMin, end: startMin + dur };
+          });
         const [sh, sm] = daySchedule.startTime.split(":").map(Number);
         const [eh, em] = daySchedule.endTime.split(":").map(Number);
-        const startMin = sh * 60 + sm;
-        const endMin = eh * 60 + em;
+        const blockStartMin = sh * 60 + sm;
+        const blockEndMin = eh * 60 + em;
         const generated: { value: string; available: boolean }[] = [];
-        for (let m = startMin; m + 30 <= endMin; m += 30) {
+        for (let m = blockStartMin; m + 30 <= blockEndMin; m += 30) {
+          const slotEnd = m + 30;
+          const isTaken = occupiedRanges.some((r) => m < r.end && slotEnd > r.start);
           const hh = String(Math.floor(m / 60)).padStart(2, "0");
           const mm = String(m % 60).padStart(2, "0");
-          const slotDate = new Date(selectedDate);
-          slotDate.setHours(Math.floor(m / 60), m % 60, 0, 0);
-          const slotTime = slotDate.getTime();
-          const isTaken = existingSlots.some(
-            (es: { start: number; end: number }) =>
-              slotTime < es.end && slotTime + 30 * 60000 > es.start,
-          );
           generated.push({ value: `${hh}:${mm}`, available: !isTaken });
         }
         setSlots(generated);
@@ -702,7 +699,8 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
     setSubmitting(true);
     try {
       const [sh, sm] = selectedSlot.split(":").map(Number);
-      const scheduledAt = new Date(selectedDate);
+      const [yr2, mo2, dy2] = selectedDate.split("-").map(Number);
+      const scheduledAt = new Date(yr2, mo2 - 1, dy2);
       scheduledAt.setHours(sh, sm, 0, 0);
       await bookAppointment({
         data: {
