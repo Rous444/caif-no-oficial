@@ -2,8 +2,8 @@ services:
   - type: web
     name: caif
     runtime: docker
-    repo: https://github.com/tu-usuario/caif-no-oficial
-    plan: professional
+    repo: https://github.com/Rous444/caif-no-oficial
+    plan: free
     region: ohio
     envVars:
       - key: DATABASE_URL
@@ -27,7 +27,7 @@ services:
 
 databases:
   - name: caif-db
-    plan: starter
+    plan: free
     databaseName: medicare
     user: medicare
     region: ohio
