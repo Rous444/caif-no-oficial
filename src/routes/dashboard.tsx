@@ -224,52 +224,88 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
     queryFn: () => getDoctorSchedule({ data: { doctorId } }),
   });
 
-  const { data: dayAppts } = useQuery({
+  const { data: dayAppts, isFetching: isFetchingDayAppts } = useQuery({
     queryKey: ["day-appts", doctorId, date],
     enabled: !!doctorId && !!date,
     queryFn: () => getDayAppointments({ data: { doctorId, date } }),
   });
 
   const slots = (() => {
-    if (!date || !schedules) return [] as { value: string; label: string; available: boolean }[];
+    // Return empty early if prerequisites missing or still loading
+    if (!date || !schedules || !dayAppts) return [] as { value: string; label: string; available: boolean }[];
+
+    // Parse selected date
     const [yr, mo, dy] = date.split("-").map(Number);
-    const d = new Date(yr, mo - 1, dy);
-    const weekday = (d.getDay() + 6) % 7;
-    const blocks = schedules.filter((s: any) => s.weekday === weekday);
+    const targetDate = new Date(yr, mo - 1, dy);
+    const weekday = (targetDate.getDay() + 6) % 7;
+
+    // All schedule blocks for that weekday (support multiple blocks)
+    const blocks = (schedules ?? []).filter((s: any) => s.weekday === weekday);
     if (blocks.length === 0) return [];
 
+    // Build occupied ranges as Date pairs (ignore canceled)
     const occupiedRanges = (dayAppts ?? [])
-      .filter((a: any) => a.scheduledAt)
+      .filter((a: any) => a.scheduledAt && a.status !== "cancelado")
       .map((a: any) => {
         const apptDate = new Date(a.scheduledAt);
-        const startMin = apptDate.getHours() * 60 + apptDate.getMinutes();
-        const dur = a.durationMinutes ?? SLOT_MIN;
-        return { start: startMin, end: startMin + dur };
+        const durMinutes = Number(a.durationMinutes ?? SLOT_MIN) || SLOT_MIN;
+        const start = new Date(
+          apptDate.getFullYear(),
+          apptDate.getMonth(),
+          apptDate.getDate(),
+          apptDate.getHours(),
+          apptDate.getMinutes(),
+          0,
+          0,
+        );
+        const end = new Date(start.getTime() + durMinutes * 60_000);
+        return { start, end };
       });
 
     const now = new Date();
-    const isToday =
-      now.getFullYear() === yr && now.getMonth() === mo - 1 && now.getDate() === dy;
+    const isToday = now.getFullYear() === yr && now.getMonth() === mo - 1 && now.getDate() === dy;
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
     const out: { value: string; label: string; available: boolean }[] = [];
+
+    // Debug: log blocks and occupied ranges to browser console to help debugging
+    try {
+      // eslint-disable-next-line no-console
+      console.debug("slot-gen: blocks", blocks);
+      // eslint-disable-next-line no-console
+      console.debug("slot-gen: occupiedRanges", occupiedRanges);
+    } catch {}
+
+    const slotMs = SLOT_MIN * 60_000;
+    const overlaps = (s: Date, e: Date, r: { start: Date; end: Date }) => s < r.end && e > r.start;
+
     for (const b of blocks) {
       const [sh, sm] = String(b.startTime).split(":").map(Number);
       const [eh, em] = String(b.endTime).split(":").map(Number);
-      const blockStartMin = sh * 60 + sm;
-      const blockEndMin = eh * 60 + em;
-      for (let m = blockStartMin; m + SLOT_MIN <= blockEndMin; m += SLOT_MIN) {
-        if (isToday && m <= currentMinutes) continue;
-        const slotEnd = m + SLOT_MIN;
-        const isTaken = occupiedRanges.some((r) => m < r.end && slotEnd > r.start);
-        const slotDate = new Date(yr, mo - 1, dy, Math.floor(m / 60), m % 60);
+      let cursor = new Date(yr, mo - 1, dy, sh, sm, 0, 0).getTime();
+      const blockEnd = new Date(yr, mo - 1, dy, eh, em, 0, 0).getTime();
+
+      while (cursor + slotMs <= blockEnd) {
+        const slotStart = new Date(cursor);
+        const slotEnd = new Date(cursor + slotMs);
+
+        if (isToday && slotStart.getHours() * 60 + slotStart.getMinutes() <= currentMinutes) {
+          cursor += slotMs;
+          continue;
+        }
+
+        const isTaken = occupiedRanges.some((r) => overlaps(slotStart, slotEnd, r));
+
         out.push({
-          value: slotDate.toISOString(),
-          label: slotDate.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+          value: slotStart.toISOString(),
+          label: slotStart.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
           available: !isTaken,
         });
+
+        cursor += slotMs;
       }
     }
+
     return out;
   })();
 
@@ -310,6 +346,46 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   const specialty = specialties?.find((s) => s.id === specialtyId);
   const slotDate = slot ? new Date(slot) : null;
+
+  let availabilityContent: React.JSX.Element;
+  if (!doctorId || !date) {
+    availabilityContent = <p className="text-sm text-muted-foreground mt-1">Elegí profesional y fecha</p>;
+  } else if (isFetchingDayAppts) {
+    availabilityContent = (
+      <p className="text-sm text-muted-foreground mt-1">
+        Cargando horarios...
+      </p>
+    );
+  } else if (slots.length === 0) {
+    availabilityContent = (
+      <p className="text-sm text-muted-foreground mt-1">
+        Sin horarios disponibles este día
+      </p>
+    );
+  } else {
+    const availableSlots = slots.filter((s) => s.available);
+    availabilityContent = (
+      <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+        {availableSlots.length > 0 ? (
+          availableSlots.map((s) => (
+            <Button
+              key={s.value}
+              type="button"
+              size="sm"
+              variant={slot === s.value ? "default" : "outline"}
+              onClick={() => setSlot(s.value)}
+            >
+              {s.label}
+            </Button>
+          ))
+        ) : (
+          <p className="col-span-4 text-sm text-muted-foreground">
+            No hay horarios disponibles (todos ocupados)
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-primary/50 p-4">
@@ -429,36 +505,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
             </div>
             <div>
               <Label>Horario disponible</Label>
-              {!doctorId || !date ? (
-                <p className="text-sm text-muted-foreground mt-1">Elegí profesional y fecha</p>
-              ) : slots.length === 0 ? (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Sin horarios disponibles este día
-                </p>
-              ) : (
-                <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                  {slots.map((s) =>
-                    s.available ? (
-                      <Button
-                        key={s.value}
-                        type="button"
-                        size="sm"
-                        variant={slot === s.value ? "default" : "outline"}
-                        onClick={() => setSlot(s.value)}
-                      >
-                        {s.label}
-                      </Button>
-                    ) : (
-                      <div
-                        key={s.value}
-                        className="flex items-center justify-center rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive"
-                      >
-                        Ocupado
-                      </div>
-                    ),
-                  )}
-                </div>
-              )}
+              {availabilityContent}
             </div>
           </div>
         ) : (

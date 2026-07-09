@@ -30,12 +30,15 @@ bun db:seed           # Seed specialties table
 - **Auth API**: Handled via middleware in `src/start.ts:19-28` — intercepts `/api/auth/*` and calls `auth.handler(request)`. NOT a route file.
 - **Routing**: File-based in `src/routes/`. `routeTree.gen.ts` is auto-generated — do NOT edit by hand.
 - **Server-only code**: Use `*.server.ts` suffix or `@tanstack/react-start/server-only` (NOT `server-only` pkg — enforced by ESLint `no-restricted-imports`)
-- **Database**: Drizzle ORM with `postgres-js` driver. 12 tables in `src/db/schema.ts`: better-auth tables (`user`, `session`, `account`, `verification`) + app tables (`patients`, `specialties`, `doctors`, `doctorSpecialties` (junction), `doctorSchedules`, `appointments`, `galleryImages`, `notifications`)
+- **Database**: Drizzle ORM with `postgres-js` driver. 13 tables in `src/db/schema.ts`: better-auth tables (`user`, `session`, `account`, `verification`) + app tables (`patients`, `specialties`, `doctors`, `doctorSpecialties` (junction), `doctorSchedules`, `appointments`, `galleryImages`, `medicalRecords`, `notifications`)
 - **Auth**: `AuthProvider` in `src/lib/auth.tsx` reads `user.role` from session. Roles: `paciente`, `medico`, `recepcionista`, `admin`. Use `useAuth()` hook (not `useSession` from better-auth/react directly).
 - **Server functions**: `createServerFn` from `@tanstack/react-start` with `.inputValidator()` (not `.validator()`). See `src/lib/api/example.functions.ts` for pattern. GET functions cannot use `.inputValidator()` — use POST instead.
-- **Server function files**: `src/lib/api/` — 7 files: `admin-doctors`, `admin-users`, `appointments`, `db-helpers`, `doctor-schedule`, `gallery`, `specialties`. Importing `db-helpers` from a route file will leak `postgres` into the client bundle — always call server fns from routes, not query helpers.
+- **Server function files**: `src/lib/api/` — 9 files: `admin-doctors`, `admin-users`, `appointments`, `db-helpers`, `doctor-schedule`, `example`, `gallery`, `medical-records`, `specialties`. Importing `db-helpers` from a route file will leak `postgres` into the client bundle — always call server fns from routes, not query helpers.
 - **UI**: shadcn-style Radix primitives in `src/components/ui/` via `components.json`. `cn()` from `clsx` + `tailwind-merge` in `src/lib/utils.ts`.
 - **Tailwind v4**: CSS-first via `@tailwindcss/vite` plugin (no tailwind.config.\*). Global styles in `src/styles.css` imported via `?url` in `__root.tsx`.
+- **Shared layout**: All authed routes (`/dashboard`, `/doctor`, `/staff`, `/admin`) wrap content in `DashboardLayout` from `src/components/layout/DashboardLayout.tsx`.
+- **Password change guard**: `src/components/PasswordChangeGuard.tsx` wraps the entire app in `__root.tsx` and auto-redirects users with `mustChangePassword=true` to `/change-password`.
+- **Seed defaults**: `bun db:seed` creates specialties and an admin user `admin@medicare.com` with password `AdminMediCare2026!` (`mustChangePassword: true`). Default doctor password: `MediCare2026!`.
 
 ## Routes
 
@@ -64,6 +67,8 @@ bun db:seed           # Seed specialties table
 - `bunfig.toml` has 24h supply-chain guard (`minimumReleaseAge = 86400`); `@lovable.dev/vite-tanstack-config` excluded.
 - Nested route param: `$id` (bare `$`). Splat: `$.tsx` → `_splat` param.
 - `src/integrations/supabase/` and `src/integrations/lovable/` have been **deleted** — do not recreate.
-- `.env` (not committed): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `SMTP_*`, default passwords.
+- `.env` is NOT in `.gitignore` (only `*.local` is). The committed `.env` has dev-only dummy values — never commit real secrets. Keep actual secrets in `.env.local` (gitignored).
+- `package-lock.json` exists alongside `bun.lock` — use `bun`, never `npm`/`pnpm`/`yarn`.
+- CI order (`.github/workflows/ci.yml`): `bun run lint` → `bunx tsc --noEmit` → `bun run test` → `bun run build`. All steps `continue-on-error: true`.
 - `@typescript-eslint/no-unused-vars` disabled in ESLint; `no-explicit-any` errors exist in legacy code.
 - `verbatimModuleSyntax: false` in tsconfig — allows non-verbatim imports.

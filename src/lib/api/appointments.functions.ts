@@ -49,10 +49,10 @@ export const getStaffAppointments = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const conditions = [];
     if (data.date) {
-      const dayStart = new Date(data.date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(data.date);
-      dayEnd.setHours(23, 59, 59, 999);
+      // Parse YYYY-MM-DD from date input and create dates in local timezone
+      const [year, month, day] = data.date.split("-").map(Number);
+      const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
       conditions.push(gte(appointments.scheduledAt, dayStart));
       conditions.push(lt(appointments.scheduledAt, dayEnd));
     }
@@ -142,10 +142,10 @@ export const getDayAppointments = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const dayStart = new Date(data.date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(data.date);
-    dayEnd.setHours(23, 59, 59, 999);
+    // Parse YYYY-MM-DD from date input and create dates in local timezone
+    const [year, month, day] = data.date.split("-").map(Number);
+    const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
 
     return db
       .select({

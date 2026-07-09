@@ -639,33 +639,37 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
         const [yr, mo, dy] = selectedDate.split("-").map(Number);
         const date = new Date(yr, mo - 1, dy);
         const weekday = (date.getDay() + 6) % 7;
-        const daySchedule = schedule.find((s: { weekday: number }) => s.weekday === weekday);
-        if (!daySchedule) {
+        const blocks = (schedule ?? []).filter((s: { weekday: number }) => s.weekday === weekday);
+        if (blocks.length === 0) {
           setSlots([]);
           return;
         }
+
         const existing = await getDayAppointments({
           data: { doctorId: selectedDoctorId, date: selectedDate },
         });
-        const occupiedRanges = existing
-          .filter((a: { scheduledAt: Date | string }) => a.scheduledAt)
-          .map((a: { scheduledAt: Date | string; durationMinutes: number | null }) => {
+        const occupiedRanges = (existing ?? [])
+          .filter((a: any) => a.scheduledAt && a.status !== "cancelado")
+          .map((a: any) => {
             const apptDate = new Date(a.scheduledAt);
             const startMin = apptDate.getHours() * 60 + apptDate.getMinutes();
-            const dur = a.durationMinutes ?? 30;
+            const dur = Number(a.durationMinutes ?? 30) || 30;
             return { start: startMin, end: startMin + dur };
           });
-        const [sh, sm] = daySchedule.startTime.split(":").map(Number);
-        const [eh, em] = daySchedule.endTime.split(":").map(Number);
-        const blockStartMin = sh * 60 + sm;
-        const blockEndMin = eh * 60 + em;
+
         const generated: { value: string; available: boolean }[] = [];
-        for (let m = blockStartMin; m + 30 <= blockEndMin; m += 30) {
-          const slotEnd = m + 30;
-          const isTaken = occupiedRanges.some((r) => m < r.end && slotEnd > r.start);
-          const hh = String(Math.floor(m / 60)).padStart(2, "0");
-          const mm = String(m % 60).padStart(2, "0");
-          generated.push({ value: `${hh}:${mm}`, available: !isTaken });
+        for (const b of blocks) {
+          const [sh, sm] = String(b.startTime).split(":").map(Number);
+          const [eh, em] = String(b.endTime).split(":").map(Number);
+          const blockStartMin = sh * 60 + sm;
+          const blockEndMin = eh * 60 + em;
+          for (let m = blockStartMin; m + 30 <= blockEndMin; m += 30) {
+            const slotEnd = m + 30;
+            const isTaken = occupiedRanges.some((r) => m < r.end && slotEnd > r.start);
+            const hh = String(Math.floor(m / 60)).padStart(2, "0");
+            const mm = String(m % 60).padStart(2, "0");
+            generated.push({ value: `${hh}:${mm}`, available: !isTaken });
+          }
         }
         setSlots(generated);
       } catch {
