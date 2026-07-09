@@ -12,7 +12,7 @@ export const getMyAppointments = createServerFn({ method: "POST" })
       where: eq(appointments.patientId, data.userId),
       with: {
         doctor: {
-          with: { specialty: true },
+          with: { specialty: true, user: true },
         },
       },
       orderBy: [desc(appointments.scheduledAt)],

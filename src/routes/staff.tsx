@@ -49,6 +49,7 @@ import { searchPatients, createPatientByStaff } from "@/lib/api/admin-users.func
 import { getAllDoctors } from "@/lib/api/admin-doctors.functions";
 import { getDoctorSchedule } from "@/lib/api/doctor-schedule.functions";
 import { getAllSpecialties } from "@/lib/api/specialties.functions";
+import { ProfileEditor } from "@/components/ProfileEditor";
 export const Route = createFileRoute("/staff")({
   head: () => ({ meta: [{ title: "Agenda · CAIF" }] }),
   component: StaffPanel,
@@ -219,6 +220,9 @@ function StaffPanel() {
           }}
         />
       )}
+      <section className="mt-10">
+        <ProfileEditor />
+      </section>
     </DashboardLayout>
   );
 }

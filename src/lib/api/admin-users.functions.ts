@@ -167,6 +167,26 @@ export const getUsers = createServerFn({ method: "POST" })
     return getAllUsers(data);
   });
 
+export const resetUserPassword = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      userId: z.string(),
+      newPassword: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const passwordHash = await hashPassword(data.newPassword);
+    await db
+      .update(account)
+      .set({ password: passwordHash, updatedAt: new Date() })
+      .where(and(eq(account.userId, data.userId), eq(account.providerId, "credential")));
+    await db
+      .update(user)
+      .set({ mustChangePassword: true, updatedAt: new Date() })
+      .where(eq(user.id, data.userId));
+    return { success: true };
+  });
+
 export const updateUserActive = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({

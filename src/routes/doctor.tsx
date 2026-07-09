@@ -48,6 +48,7 @@ import {
   updateMyInsurance,
   updateMyBio,
 } from "@/lib/api/doctor-schedule.functions";
+import { ProfileEditor } from "@/components/ProfileEditor";
 import {
   uploadMedicalRecord,
   getMyPatientRecords,
@@ -149,6 +150,9 @@ function DoctorPanel() {
           <TabsTrigger value="descripcion" className="gap-2">
             <User className="h-4 w-4" /> Descripción
           </TabsTrigger>
+          <TabsTrigger value="perfil" className="gap-2">
+            <User className="h-4 w-4" /> Perfil
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="agenda">
           <AgendaTab userId={user.id} />
@@ -164,6 +168,9 @@ function DoctorPanel() {
         </TabsContent>
         <TabsContent value="descripcion">
           <DescriptionTab userId={user.id} />
+        </TabsContent>
+        <TabsContent value="perfil">
+          <ProfileEditor />
         </TabsContent>
       </Tabs>
     </DashboardLayout>

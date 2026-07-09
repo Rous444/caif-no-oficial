@@ -22,6 +22,25 @@ const authApiMiddleware = createMiddleware().server(async ({ request, next }) =>
     const { auth } = await import("./lib/auth.server");
     return auth.handler(request);
   }
+  if (url.pathname === "/api/whatsapp/status") {
+    const { getWhatsAppStatus } = await import("./lib/whatsapp");
+    return Response.json(getWhatsAppStatus());
+  }
+  if (url.pathname === "/api/whatsapp/restart") {
+    const { startWhatsAppClient } = await import("./lib/whatsapp");
+    startWhatsAppClient().catch(() => {});
+    return Response.json({ ok: true });
+  }
+  if (url.pathname === "/api/whatsapp/qr-image") {
+    const { getWhatsAppStatus } = await import("./lib/whatsapp");
+    const status = getWhatsAppStatus();
+    if (!status.qrCode) {
+      return new Response("No QR available", { status: 404 });
+    }
+    const QRCode = await import("qrcode");
+    const dataUrl = await QRCode.toDataURL(status.qrCode, { width: 300, margin: 2 });
+    return Response.json({ qrDataUrl: dataUrl });
+  }
   return await next();
 });
 

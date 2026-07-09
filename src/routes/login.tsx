@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
+import { resolveLoginIdentifier } from "@/lib/api/profile.functions";
 import { toast } from "sonner";
 import { Activity } from "lucide-react";
 import FadeContent from "@/components/FadeContent";
@@ -38,7 +39,13 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await authClient.signIn.email({ email: emailOrDoc, password });
+      const { email } = await resolveLoginIdentifier({ data: { identifier: emailOrDoc } });
+      if (!email) {
+        toast.error("No se encontró un usuario con ese email o DNI");
+        setLoading(false);
+        return;
+      }
+      const { error } = await authClient.signIn.email({ email, password });
       if (error) {
         toast.error(error.message || "Credenciales inválidas");
         return;

@@ -261,14 +261,23 @@ export function GallerySection() {
     { id: "default-3", url: g3, title: "Pasillos" },
     { id: "default-4", url: g4, title: "Pediatría" },
   ];
+  const hiddenDefaults: string[] =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("gallery_hidden_defaults") || "[]")
+      : [];
   const { data } = useQuery({
     queryKey: ["gallery"],
     queryFn: () => getActiveGalleryImages(),
   });
   const dbUrls = new Set((data ?? []).map((img) => img.url));
+  const visibleFallback = fallback.filter(
+    (f) => !dbUrls.has(f.url) && !hiddenDefaults.includes(f.id),
+  );
   const images = data && data.length > 0
-    ? [...data, ...fallback.filter((f) => !dbUrls.has(f.url))]
-    : fallback;
+    ? [...data, ...visibleFallback]
+    : visibleFallback.length > 0
+      ? visibleFallback
+      : fallback;
 
   return (
     <section id="galeria" className="bg-surface py-20">

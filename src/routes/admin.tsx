@@ -12,6 +12,8 @@ import {
   Trash2,
   ToggleLeft,
   ToggleRight,
+  KeyRound,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,8 +50,10 @@ import {
   createRecepcionistaAccount,
   updateUserActive,
   deleteUser,
+  resetUserPassword,
 } from "@/lib/api/admin-users.functions";
 import { GalleryTab } from "@/components/admin/GalleryTab";
+import { WhatsAppTab } from "@/components/admin/WhatsAppTab";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Administración · CAIF" }] }),
@@ -104,6 +108,9 @@ function AdminPanel() {
           <TabsTrigger value="galeria" className="gap-2">
             <ImageIcon className="h-4 w-4" /> Galería
           </TabsTrigger>
+          <TabsTrigger value="whatsapp" className="gap-2">
+            <Smartphone className="h-4 w-4" /> WhatsApp
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="usuarios">
@@ -118,6 +125,9 @@ function AdminPanel() {
         <TabsContent value="galeria">
           <GalleryTab />
         </TabsContent>
+        <TabsContent value="whatsapp">
+          <WhatsAppTab />
+        </TabsContent>
       </Tabs>
     </DashboardLayout>
   );
@@ -128,6 +138,9 @@ function UsersTab() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [resetPwOpen, setResetPwOpen] = useState(false);
+  const [resetPwUserId, setResetPwUserId] = useState<string | null>(null);
+  const [resetPwValue, setResetPwValue] = useState("");
 
   const { data: users } = useQuery({
     queryKey: ["admin-users", search, roleFilter],
@@ -154,6 +167,17 @@ function UsersTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast.success("Usuario eliminado");
+    },
+  });
+
+  const resetPw = useMutation({
+    mutationFn: ({ userId, newPassword }: { userId: string; newPassword: string }) =>
+      resetUserPassword({ data: { userId, newPassword } }),
+    onSuccess: () => {
+      toast.success("Contraseña restablecida. El usuario deberá cambiarla al iniciar sesión.");
+      setResetPwOpen(false);
+      setResetPwUserId(null);
+      setResetPwValue("");
     },
   });
 
@@ -240,6 +264,17 @@ function UsersTab() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setResetPwUserId(u.id);
+                        setResetPwValue("");
+                        setResetPwOpen(true);
+                      }}
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -249,6 +284,44 @@ function UsersTab() {
       </div>
 
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <Dialog open={resetPwOpen} onOpenChange={setResetPwOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restablecer contraseña</DialogTitle>
+            <DialogDescription>
+              Ingresá la nueva contraseña para este usuario. Se marcará como "debe cambiar la
+              contraseña" en el próximo inicio de sesión.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label>Nueva contraseña</Label>
+            <Input
+              type="password"
+              value={resetPwValue}
+              onChange={(e) => setResetPwValue(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && resetPwValue.length >= 6 && resetPwUserId) {
+                  resetPw.mutate({ userId: resetPwUserId, newPassword: resetPwValue });
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetPwOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (resetPwUserId) resetPw.mutate({ userId: resetPwUserId, newPassword: resetPwValue });
+              }}
+              disabled={resetPw.isPending || resetPwValue.length < 6}
+            >
+              {resetPw.isPending ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import {
 import { getActiveSpecialties } from "@/lib/api/specialties.functions";
 import { getDoctorsBySpecialty } from "@/lib/api/admin-doctors.functions";
 import { getDoctorSchedule } from "@/lib/api/doctor-schedule.functions";
+import { ProfileEditor } from "@/components/ProfileEditor";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Mi panel · CAIF" }] }),
@@ -123,6 +124,10 @@ function Dashboard() {
           )}
         </section>
       )}
+
+      <section className="mt-10">
+        <ProfileEditor />
+      </section>
     </DashboardLayout>
   );
 }
