@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: caif
+    runtime: docker
+    repo: https://github.com/tu-usuario/caif-no-oficial
+    plan: professional
+    region: ohio
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: caif-db
+          property: connectionString
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        value: https://caif.onrender.com
+      - key: TZ
+        value: America/Argentina/Buenos_Aires
+      - key: DEFAULT_DOCTOR_PASSWORD
+        value: MediCare2026!
+      - key: DEFAULT_ADMIN_PASSWORD
+        value: AdminMediCare2026!
+    disk:
+      name: whatsapp-session
+      mountPath: /app/whatsapp-session
+      sizeGB: 1
+
+databases:
+  - name: caif-db
+    plan: starter
+    databaseName: medicare
+    user: medicare
+    region: ohio

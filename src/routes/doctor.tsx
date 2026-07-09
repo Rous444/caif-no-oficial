@@ -46,6 +46,7 @@ import {
   getDoctorIdByUserId,
   getMyDoctorProfile,
   updateMyInsurance,
+  updateMyBio,
 } from "@/lib/api/doctor-schedule.functions";
 import {
   uploadMedicalRecord,
@@ -145,6 +146,9 @@ function DoctorPanel() {
           <TabsTrigger value="fichas" className="gap-2">
             <FileText className="h-4 w-4" /> Fichas Médicas
           </TabsTrigger>
+          <TabsTrigger value="descripcion" className="gap-2">
+            <User className="h-4 w-4" /> Descripción
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="agenda">
           <AgendaTab userId={user.id} />
@@ -157,6 +161,9 @@ function DoctorPanel() {
         </TabsContent>
         <TabsContent value="fichas">
           <MedicalRecordsTab userId={user.id} />
+        </TabsContent>
+        <TabsContent value="descripcion">
+          <DescriptionTab userId={user.id} />
         </TabsContent>
       </Tabs>
     </DashboardLayout>
@@ -839,7 +846,9 @@ type PatientRecord = {
   id: string;
   patientId: string;
   fileName: string;
+  fileType: string;
   fileSize: number;
+  recordVersion: number;
   createdAt: Date | null;
   patient: {
     firstName: string;
@@ -848,6 +857,66 @@ type PatientRecord = {
     documentNumber: string | null;
   } | null;
 };
+
+function DescriptionTab({ userId }: { userId: string }) {
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["my-doctor-profile-bio", userId],
+    queryFn: () => getMyDoctorProfile({ data: { userId } }),
+  });
+
+  const [bio, setBio] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile && !loaded) {
+      setBio(profile.bio ?? "");
+      setLoaded(true);
+    }
+  }, [profile, loaded]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await updateMyBio({ data: { userId, bio } });
+      toast.success("Descripción guardada");
+    } catch {
+      toast.error("Error al guardar la descripción");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="mt-6 space-y-6">
+      <div className="rounded-2xl border border-border bg-background p-6">
+        <h3 className="font-display mb-1 text-lg">Descripción profesional</h3>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Esta descripción se muestra a los pacientes al seleccionar un profesional. Ej: "Realizo
+          evaluaciones psicodiagnósticas con tests de personalidad (Rorschach, Zulliger)."
+        </p>
+        {isLoading ? (
+          <div className="text-muted-foreground">Cargando...</div>
+        ) : (
+          <>
+            <textarea
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm min-h-[120px] resize-y"
+              placeholder="Describí tu enfoque profesional, técnicas que utilizás, etc."
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              maxLength={500}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">{bio.length}/500 caracteres</p>
+            <div className="mt-4 flex justify-end">
+              <Button onClick={save} disabled={saving}>
+                {saving ? "Guardando..." : "Guardar descripción"}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function MedicalRecordsTab({ userId }: { userId: string }) {
   const { data: doctorId } = useQuery({
@@ -885,7 +954,7 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
   });
 
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<{
+  const [uploadForPatient, setUploadForPatient] = useState<{
     id: string;
     firstName: string;
     lastName: string;
@@ -895,8 +964,8 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
 
-  const handleUpload = async () => {
-    if (!file || !selectedPatient || !doctorId) return;
+  const handleUpload = async (patientId: string) => {
+    if (!file || !doctorId) return;
     setUploading(true);
     try {
       const buffer = await file.arrayBuffer();
@@ -907,8 +976,9 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
       await uploadMedicalRecord({
         data: {
           doctorId,
-          patientId: selectedPatient.id,
+          patientId,
           fileName: file.name,
+          fileType: file.type || "application/octet-stream",
           fileData: base64,
           fileSize: file.size,
         },
@@ -916,7 +986,7 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
       toast.success("Ficha médica subida");
       setUploadOpen(false);
       setFile(null);
-      setSelectedPatient(null);
+      setUploadForPatient(null);
       refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al subir la ficha");
@@ -926,13 +996,23 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
 
   const handleView = async (recordId: string) => {
     try {
-      const { fileData, fileName } = await getRecordFile({ data: { recordId } });
+      const { fileData, fileName, fileType } = await getRecordFile({
+        data: { recordId },
+      });
       const binary = atob(fileData);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "application/pdf" });
+      const blob = new Blob([bytes], { type: fileType });
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      if (fileType.startsWith("image/")) {
+        window.open(url, "_blank");
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+      }
+      URL.revokeObjectURL(url);
     } catch {
       toast.error("Error al abrir la ficha");
     }
@@ -948,22 +1028,147 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
     }
   };
 
-  const existingPatientIds = useMemo(
-    () => new Set((records ?? []).map((r) => (r as any).patientId)),
-    [records],
-  );
+  const recordsByPatient = useMemo(() => {
+    const map = new Map<string, (PatientRecord & { recordVersion: number })[]>();
+    for (const r of records ?? []) {
+      const pid = r.patientId;
+      if (!map.has(pid)) map.set(pid, []);
+      map.get(pid)!.push(r as PatientRecord & { recordVersion: number });
+    }
+    for (const [, versions] of map) {
+      versions.sort((a, b) => b.recordVersion - a.recordVersion);
+    }
+    return map;
+  }, [records]);
 
-  const filteredRecords = useMemo(() => {
-    if (!search.trim()) return records ?? [];
+  const filteredPatientIds = useMemo(() => {
+    if (!search.trim()) return Array.from(recordsByPatient.keys());
     const term = search.toLowerCase();
-    return (
-      (records as PatientRecord[])?.filter((r) => {
-        const name = `${r.patient?.firstName} ${r.patient?.lastName}`.toLowerCase();
-        const dni = r.patient?.documentNumber?.toLowerCase() ?? "";
+    return Array.from(recordsByPatient.entries())
+      .filter(([, versions]) => {
+        const p = versions[0].patient;
+        const name = `${p?.firstName} ${p?.lastName}`.toLowerCase();
+        const dni = p?.documentNumber?.toLowerCase() ?? "";
         return name.includes(term) || dni.includes(term);
-      }) ?? []
+      })
+      .map(([pid]) => pid);
+  }, [recordsByPatient, search]);
+
+  const fileIcon = (fileName: string) => {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    if (ext === "pdf") return "PDF";
+    if (["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(ext ?? "")) return "IMG";
+    if (["doc", "docx"].includes(ext ?? "")) return "DOC";
+    if (ext === "txt") return "TXT";
+    return "FILE";
+  };
+
+  const openUpload = (patient?: { id: string; firstName: string; lastName: string; email: string }) => {
+    setUploadForPatient(patient ?? null);
+    setFile(null);
+    setUploadOpen(true);
+  };
+
+  function PatientRecordCard({ patientId, versions }: { patientId: string; versions: (PatientRecord & { recordVersion: number })[] }) {
+    const [showHistory, setShowHistory] = useState(false);
+    const latest = versions[0];
+    const prevVersions = versions.slice(1);
+    const p = latest.patient;
+
+    return (
+      <div className="rounded-xl border border-border bg-background overflow-hidden">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-primary text-primary-foreground text-sm font-bold">
+              {p?.firstName?.[0]}{p?.lastName?.[0]}
+            </div>
+            <div className="min-w-0">
+              <div className="font-medium truncate">{p?.firstName} {p?.lastName}</div>
+              <div className="text-xs text-muted-foreground">
+                {p?.documentNumber ?? "—"} · {p?.email}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" variant="outline" onClick={() => openUpload({
+              id: patientId,
+              firstName: p?.firstName ?? "",
+              lastName: p?.lastName ?? "",
+              email: p?.email ?? "",
+            })}>
+              <Upload className="mr-1 h-4 w-4" /> Nueva versión
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowHistory(!showHistory)}
+              disabled={prevVersions.length === 0}
+            >
+              <History className="mr-1 h-4 w-4" />
+              {prevVersions.length > 0 ? `Historial (${versions.length})` : "Sin historial"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="border-t border-border px-4 py-3 bg-muted/20">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                {fileIcon(latest.fileName)}
+              </span>
+              <span className="truncate">{latest.fileName}</span>
+              <span className="text-muted-foreground text-xs">
+                v{latest.recordVersion} · {(latest.fileSize / 1024 / 1024).toFixed(1)} MB
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground">
+                {latest.createdAt ? new Date(latest.createdAt).toLocaleDateString("es-AR") : ""}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => handleView(latest.id)}>
+                <Eye className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => handleDelete(latest.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {showHistory && prevVersions.length > 0 && (
+          <div className="border-t border-border">
+            {prevVersions.map((v) => (
+              <div
+                key={v.id}
+                className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0 bg-background/50"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                    {fileIcon(v.fileName)}
+                  </span>
+                  <span className="text-sm truncate">{v.fileName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    v{v.recordVersion} · {(v.fileSize / 1024 / 1024).toFixed(1)} MB
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground">
+                    {v.createdAt ? new Date(v.createdAt).toLocaleDateString("es-AR") : ""}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => handleView(v.id)}>
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleDelete(v.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     );
-  }, [records, search]);
+  }
 
   return (
     <div className="mt-6 space-y-6">
@@ -978,139 +1183,91 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Upload className="mr-2 h-4 w-4" /> Subir ficha
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Subir ficha médica</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Paciente</Label>
-                  <select
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    value={selectedPatient?.id ?? ""}
-                    onChange={(e) => {
-                      const p = patientsWithAppts.find((p) => p.id === e.target.value);
-                      setSelectedPatient(p ?? null);
-                    }}
-                  >
-                    <option value="">Seleccionar paciente</option>
-                    {patientsWithAppts.map((p) => {
-                      const hasRecord = existingPatientIds.has(p.id);
-                      return (
-                        <option
-                          key={p.id}
-                          value={p.id}
-                          disabled={hasRecord}
-                          className={hasRecord ? "text-muted-foreground" : ""}
-                        >
-                          {p.firstName} {p.lastName} ({p.email})
-                          {hasRecord ? " (ya tiene ficha)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  {selectedPatient && existingPatientIds.has(selectedPatient.id) && (
-                    <p className="mt-1 text-xs text-destructive">
-                      Este paciente ya tiene una ficha cargada
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label>Archivo PDF</Label>
-                  <Input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  />
-                </div>
-                {file && (
-                  <p className="text-xs text-muted-foreground">
-                    {file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)
-                  </p>
-                )}
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setUploadOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleUpload}
-                  disabled={
-                    !file ||
-                    !selectedPatient ||
-                    (selectedPatient && existingPatientIds.has(selectedPatient.id)) ||
-                    uploading
-                  }
-                >
-                  {uploading ? "Subiendo..." : "Subir"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => openUpload()}>
+            <Upload className="mr-2 h-4 w-4" /> Subir ficha
+          </Button>
         </div>
 
-        {(!records || records.length === 0) && !search ? (
+        {recordsByPatient.size === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
             <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
             <p>No hay fichas médicas aún.</p>
             <p className="text-xs mt-1">Subí la primera ficha usando el botón "Subir ficha".</p>
           </div>
-        ) : filteredRecords.length === 0 ? (
+        ) : filteredPatientIds.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
             <Search className="mx-auto mb-2 h-8 w-8 opacity-50" />
             <p>No se encontraron fichas para "{search}"</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="p-4 font-medium">Paciente</th>
-                  <th className="p-4 font-medium">DNI</th>
-                  <th className="p-4 font-medium">Archivo</th>
-                  <th className="p-4 font-medium">Tamaño</th>
-                  <th className="p-4 font-medium">Subido</th>
-                  <th className="p-4 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRecords.map((r) => (
-                  <tr key={r.id} className="border-b border-border last:border-0">
-                    <td className="p-4">
-                      {r.patient?.firstName} {r.patient?.lastName}
-                    </td>
-                    <td className="p-4 text-muted-foreground">
-                      {r.patient?.documentNumber ?? "—"}
-                    </td>
-                    <td className="p-4 text-muted-foreground">{r.fileName}</td>
-                    <td className="p-4 text-muted-foreground">
-                      {(r.fileSize / 1024 / 1024).toFixed(1)} MB
-                    </td>
-                    <td className="p-4 text-muted-foreground">
-                      {r.createdAt ? new Date(r.createdAt).toLocaleDateString("es-AR") : "—"}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleView(r.id)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDelete(r.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {filteredPatientIds.map((patientId) => (
+              <PatientRecordCard
+                key={patientId}
+                patientId={patientId}
+                versions={recordsByPatient.get(patientId)!}
+              />
+            ))}
           </div>
         )}
+
+        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {uploadForPatient
+                  ? `Nueva versión para ${uploadForPatient.firstName} ${uploadForPatient.lastName}`
+                  : "Subir ficha médica"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {!uploadForPatient && (
+                <div>
+                  <Label>Paciente</Label>
+                  <select
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    value={uploadForPatient?.id ?? ""}
+                    onChange={(e) => {
+                      const p = patientsWithAppts.find((p) => p.id === e.target.value);
+                      setUploadForPatient(p ?? null);
+                    }}
+                  >
+                    <option value="">Seleccionar paciente</option>
+                    {patientsWithAppts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.firstName} {p.lastName} ({p.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <Label>Archivo (PDF, imagen, Word, TXT)</Label>
+                <Input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.txt"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+              {file && (
+                <p className="text-xs text-muted-foreground">
+                  {file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setUploadOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => handleUpload(uploadForPatient!.id)}
+                disabled={!file || !uploadForPatient || uploading}
+              >
+                {uploading ? "Subiendo..." : "Subir"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

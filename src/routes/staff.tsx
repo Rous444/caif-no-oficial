@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
+import { isSoftlocked } from "@/lib/softlock";
 
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -730,7 +731,7 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button disabled={isSoftlocked()}>
           <Plus className="mr-2 h-4 w-4" />
           Nuevo turno
         </Button>
@@ -929,8 +930,15 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
                   </SelectTrigger>
                   <SelectContent>
                     {filteredDoctors.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.user?.firstName} {d.user?.lastName}
+                      <SelectItem key={d.id} value={d.id} className="py-3">
+                        <div>
+                          <div>{d.user?.firstName} {d.user?.lastName}</div>
+                          {d.bio && (
+                            <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {d.bio}
+                            </div>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>

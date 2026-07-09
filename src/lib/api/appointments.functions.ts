@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { appointments, doctors } from "@/db/schema";
 import { eq, and, gte, lt, desc, ne } from "drizzle-orm";
+import { throwIfSoftlocked } from "@/lib/softlock";
 
 export const getMyAppointments = createServerFn({ method: "POST" })
   .inputValidator(z.object({ userId: z.string() }))
@@ -88,6 +89,8 @@ export const bookAppointment = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    throwIfSoftlocked();
+
     const scheduledDate = new Date(data.scheduledAt);
     const endDate = new Date(scheduledDate.getTime() + data.durationMinutes * 60000);
 
@@ -173,6 +176,8 @@ export const rescheduleAppointment = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    throwIfSoftlocked();
+
     await db
       .update(appointments)
       .set({

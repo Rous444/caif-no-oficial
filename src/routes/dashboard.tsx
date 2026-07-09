@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Calendar, Clock, Plus, Stethoscope, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { isSoftlocked } from "@/lib/softlock";
 
 import { toast } from "sonner";
 import {
@@ -338,7 +339,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)} size="lg" className="shadow-elegant">
+      <Button onClick={() => setOpen(true)} size="lg" className="shadow-elegant" disabled={isSoftlocked()}>
         <Plus className="mr-2 h-4 w-4" /> Solicitar turno
       </Button>
     );
@@ -444,8 +445,15 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
                 </SelectTrigger>
                 <SelectContent>
                   {doctors?.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.user?.firstName} {d.user?.lastName}
+                    <SelectItem key={d.id} value={d.id} className="py-3">
+                      <div>
+                        <div>{d.user?.firstName} {d.user?.lastName}</div>
+                        {d.bio && (
+                          <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                            {d.bio}
+                          </div>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>

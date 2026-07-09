@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
+import { SoftlockBanner } from "@/components/SoftlockBanner";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -93,6 +94,8 @@ export function DashboardLayout({ children, title, description }: DashboardLayou
           </div>
         </div>
       </header>
+
+      <SoftlockBanner />
 
       <main
         id="main-content"

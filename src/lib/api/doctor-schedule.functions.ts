@@ -105,6 +105,20 @@ export const getMyDoctorProfile = createServerFn({ method: "POST" })
     return doctor;
   });
 
+export const updateMyBio = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ userId: z.string(), bio: z.string().max(500) }))
+  .handler(async ({ data }) => {
+    const doctor = await db.query.doctors.findFirst({
+      where: eq(doctors.userId, data.userId),
+    });
+    if (!doctor) throw new Error("No se encontró perfil de médico");
+    await db
+      .update(doctors)
+      .set({ bio: data.bio })
+      .where(eq(doctors.id, doctor.id));
+    return { success: true };
+  });
+
 export const getDoctorIdByUserId = createServerFn({ method: "POST" })
   .inputValidator(z.object({ userId: z.string() }))
   .handler(async ({ data }) => {

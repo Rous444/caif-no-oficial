@@ -170,8 +170,10 @@ export const medicalRecords = pgTable("medical_records", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull().default("application/pdf"),
   fileData: text("file_data").notNull(),
   fileSize: integer("file_size").notNull(),
+  recordVersion: integer("record_version").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
