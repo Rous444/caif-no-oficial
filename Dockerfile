@@ -19,6 +19,13 @@ RUN bun run build
 # ---- Runtime stage ----
 FROM node:20-bookworm-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
+
 # Chromium for whatsapp-web.js (puppeteer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
@@ -31,7 +38,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/package.json /app/start.js ./
+COPY --from=build /app/package.json /app/bun.lock ./
+
+RUN bun install --production --frozen-lockfile
+
+COPY --from=build /app/start.js ./
 
 ENV NODE_ENV=production \
     PUPPETEER_SKIP_DOWNLOAD=true \
