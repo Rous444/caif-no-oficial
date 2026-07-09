@@ -8,6 +8,17 @@ All notable changes to the MediCare design system and UI are tracked in this fil
 
 - Phase 1: Foundation — framer-motion dependency, design token update, shadow utilities
 
+### Changed
+
+- **Mobile responsive overhaul** across all routes:
+  - `DashboardLayout` title responsive (`text-2xl sm:text-4xl`)
+  - `SiteHeader` mobile menu shows full role-based navigation (doctor/staff/admin)
+  - `dashboard.tsx` time slot grid uses 3 columns on mobile with larger touch targets
+  - `doctor.tsx`/`staff.tsx` tab bars horizontally scrollable with icon-only labels on mobile; WeekView cards shorter on small screens; ApptCard buttons compact (icons-only) with 44px touch targets
+  - `admin.tsx` tabs scrollable; Users/Doctors tables replaced with card layout on mobile; Gallery overlay always visible on touch
+  - `HomeSections.tsx` hero heading, specialty grid (single-column), gallery spans, section headings, iframe height all responsive
+  - `register.tsx` form grids stack on mobile
+
 ### Added (Supabase → Drizzle migration)
 
 - **`admin.tsx`** — Full admin panel with 4 tabs: Usuarios (search, role filter, create doctor/recepcionista, toggle active, delete), Especialidades (CRUD cards with edit/create dialog), Médicos (table with edit dialog for specialty, license, bio, slot duration, active), Galería (image grid with delete)

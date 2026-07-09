@@ -95,23 +95,25 @@ function AdminPanel() {
   return (
     <DashboardLayout title="Administración" description="Panel de administración del consultorio.">
       <Tabs defaultValue="usuarios">
-        <TabsList>
-          <TabsTrigger value="usuarios" className="gap-2">
-            <Users className="h-4 w-4" /> Usuarios
-          </TabsTrigger>
-          <TabsTrigger value="especialidades" className="gap-2">
-            <Stethoscope className="h-4 w-4" /> Especialidades
-          </TabsTrigger>
-          <TabsTrigger value="medicos" className="gap-2">
-            <UserCog className="h-4 w-4" /> Médicos
-          </TabsTrigger>
-          <TabsTrigger value="galeria" className="gap-2">
-            <ImageIcon className="h-4 w-4" /> Galería
-          </TabsTrigger>
-          <TabsTrigger value="whatsapp" className="gap-2">
-            <Smartphone className="h-4 w-4" /> WhatsApp
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList>
+            <TabsTrigger value="usuarios" className="gap-1 sm:gap-2">
+              <Users className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Usuarios</span>
+            </TabsTrigger>
+            <TabsTrigger value="especialidades" className="gap-1 sm:gap-2">
+              <Stethoscope className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Especialidades</span>
+            </TabsTrigger>
+            <TabsTrigger value="medicos" className="gap-1 sm:gap-2">
+              <UserCog className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Médicos</span>
+            </TabsTrigger>
+            <TabsTrigger value="galeria" className="gap-1 sm:gap-2">
+              <ImageIcon className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Galería</span>
+            </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="gap-1 sm:gap-2">
+              <Smartphone className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">WhatsApp</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="usuarios">
           <UsersTab />
@@ -212,7 +214,7 @@ function UsersTab() {
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-border bg-background">
+      <div className="hidden md:block rounded-2xl border border-border bg-background">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-muted-foreground">
@@ -248,6 +250,7 @@ function UsersTab() {
                       size="sm"
                       variant="outline"
                       onClick={() => toggleActive.mutate({ userId: u.id, isActive: !u.isActive })}
+                      className="min-h-[44px] min-w-[44px]"
                     >
                       {u.isActive ? (
                         <ToggleLeft className="h-4 w-4" />
@@ -260,6 +263,7 @@ function UsersTab() {
                         size="sm"
                         variant="destructive"
                         onClick={() => removeUser.mutate(u.id)}
+                        className="min-h-[44px] min-w-[44px]"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -272,6 +276,7 @@ function UsersTab() {
                         setResetPwValue("");
                         setResetPwOpen(true);
                       }}
+                      className="min-h-[44px] min-w-[44px]"
                     >
                       <KeyRound className="h-4 w-4" />
                     </Button>
@@ -281,6 +286,61 @@ function UsersTab() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="md:hidden space-y-3">
+        {users?.map((u) => (
+          <div key={u.id} className="rounded-xl border border-border bg-background p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="min-w-0">
+                <div className="font-medium truncate">{u.firstName} {u.lastName}</div>
+                <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+              </div>
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs capitalize text-primary">
+                {u.role}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${u.isActive ? "bg-teal/20 text-teal" : "bg-destructive/10 text-destructive"}`}
+              >
+                {u.isActive ? "Activo" : "Inactivo"}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => toggleActive.mutate({ userId: u.id, isActive: !u.isActive })}
+                  className="min-h-[44px] min-w-[44px]"
+                >
+                  {u.isActive ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4" />}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setResetPwUserId(u.id);
+                    setResetPwValue("");
+                    setResetPwOpen(true);
+                  }}
+                  className="min-h-[44px] min-w-[44px]"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </Button>
+                {u.role !== "admin" && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => removeUser.mutate(u.id)}
+                    className="min-h-[44px] min-w-[44px]"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -686,7 +746,7 @@ function DoctorsTab() {
 
   return (
     <div className="mt-6 space-y-4">
-      <div className="rounded-2xl border border-border bg-background">
+      <div className="hidden md:block rounded-2xl border border-border bg-background">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-muted-foreground">
@@ -751,10 +811,11 @@ function DoctorsTab() {
                         setEditing(d);
                         setEditOpen(true);
                       }}
+                      className="min-h-[44px]"
                     >
                       Editar
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => remove.mutate(d.id)}>
+                    <Button size="sm" variant="destructive" onClick={() => remove.mutate(d.id)} className="min-h-[44px] min-w-[44px]">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -763,6 +824,54 @@ function DoctorsTab() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="md:hidden space-y-3">
+        {doctors?.map((d) => {
+          const specialtiesList = d.specialties
+            ?.map((s: any) => s.specialty?.name)
+            .filter(Boolean)
+            .join(", ") || d.specialty?.name || "—";
+          const ins = d.insuranceCompanies;
+          return (
+            <div key={d.id} className="rounded-xl border border-border bg-background p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{d.user?.firstName} {d.user?.lastName}</div>
+                  <div className="text-xs text-muted-foreground">{specialtiesList}</div>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${d.isActive ? "bg-teal/20 text-teal" : "bg-destructive/10 text-destructive"}`}
+                >
+                  {d.isActive ? "Activo" : "Inactivo"}
+                </span>
+              </div>
+              <div className="mb-3 text-xs text-muted-foreground">
+                <span>Matrícula: {d.licenseNumber || "—"}</span>
+                {ins && ins.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {ins.map((i: string) => (
+                      <span key={i} className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">{i}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setEditing(d); setEditOpen(true); }}
+                  className="flex-1"
+                >
+                  Editar
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => remove.mutate(d.id)} className="min-h-[44px] min-w-[44px]">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
       </div>
       <DoctorDialog open={editOpen} onOpenChange={setEditOpen} doctor={editing} />
     </div>

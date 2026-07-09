@@ -281,7 +281,7 @@ function WeekView({
           <button
             key={day.toISOString()}
             onClick={() => onPickDay(day)}
-            className={`flex min-h-[180px] flex-col rounded-2xl border bg-background p-3 text-left transition hover:border-primary ${
+            className={`flex min-h-[100px] sm:min-h-[180px] flex-col rounded-2xl border bg-background p-3 text-left transition hover:border-primary ${
               isToday ? "border-primary" : "border-border"
             }`}
           >
@@ -391,18 +391,18 @@ function ApptCard({
           {appt.status}
         </span>
         {appt.status !== "confirmado" && appt.status !== "cancelado" && (
-          <Button size="sm" onClick={() => onUpdateStatus(appt.id, "confirmado")}>
-            Confirmar
+          <Button size="sm" onClick={() => onUpdateStatus(appt.id, "confirmado")} className="min-h-[44px]">
+            <span className="hidden sm:inline">Confirmar</span><span className="sm:hidden">Conf.</span>
           </Button>
         )}
         {appt.status !== "completado" && appt.status !== "cancelado" && (
-          <Button size="sm" variant="outline" onClick={() => setReschedOpen(true)}>
-            Reprogramar
+          <Button size="sm" variant="outline" onClick={() => setReschedOpen(true)} className="min-h-[44px]">
+            <span className="hidden sm:inline">Reprogramar</span><span className="sm:hidden">Reprog.</span>
           </Button>
         )}
         {appt.status === "confirmado" && (
-          <Button size="sm" variant="outline" onClick={() => onUpdateStatus(appt.id, "completado")}>
-            Completado
+          <Button size="sm" variant="outline" onClick={() => onUpdateStatus(appt.id, "completado")} className="min-h-[44px]">
+            <span className="hidden sm:inline">Completado</span><span className="sm:hidden">Compl.</span>
           </Button>
         )}
         {appt.status !== "cancelado" && (
@@ -410,8 +410,9 @@ function ApptCard({
             size="sm"
             variant="destructive"
             onClick={() => onUpdateStatus(appt.id, "cancelado")}
+            className="min-h-[44px]"
           >
-            Cancelar
+            <span className="hidden sm:inline">Cancelar</span><span className="sm:hidden">Canc.</span>
           </Button>
         )}
       </div>
@@ -740,7 +741,7 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
           Nuevo turno
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {step === "patient" ? "Seleccionar paciente" : "Detalles del turno"}

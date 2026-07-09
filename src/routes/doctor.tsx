@@ -134,26 +134,28 @@ function DoctorPanel() {
   return (
     <DashboardLayout title="Mi Agenda" description="Gestioná tus turnos y horarios.">
       <Tabs defaultValue="agenda">
-        <TabsList>
-          <TabsTrigger value="agenda" className="gap-2">
-            <CalendarDays className="h-4 w-4" /> Agenda
-          </TabsTrigger>
-          <TabsTrigger value="horarios" className="gap-2">
-            <Settings2 className="h-4 w-4" /> Horarios
-          </TabsTrigger>
-          <TabsTrigger value="obras-sociales" className="gap-2">
-            <Building2 className="h-4 w-4" /> Obras Sociales
-          </TabsTrigger>
-          <TabsTrigger value="fichas" className="gap-2">
-            <FileText className="h-4 w-4" /> Fichas Médicas
-          </TabsTrigger>
-          <TabsTrigger value="descripcion" className="gap-2">
-            <User className="h-4 w-4" /> Descripción
-          </TabsTrigger>
-          <TabsTrigger value="perfil" className="gap-2">
-            <User className="h-4 w-4" /> Perfil
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList>
+            <TabsTrigger value="agenda" className="gap-1 sm:gap-2">
+              <CalendarDays className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Agenda</span>
+            </TabsTrigger>
+            <TabsTrigger value="horarios" className="gap-1 sm:gap-2">
+              <Settings2 className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Horarios</span>
+            </TabsTrigger>
+            <TabsTrigger value="obras-sociales" className="gap-1 sm:gap-2">
+              <Building2 className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Obras Sociales</span>
+            </TabsTrigger>
+            <TabsTrigger value="fichas" className="gap-1 sm:gap-2">
+              <FileText className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Fichas Médicas</span>
+            </TabsTrigger>
+            <TabsTrigger value="descripcion" className="gap-1 sm:gap-2">
+              <User className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Descripción</span>
+            </TabsTrigger>
+            <TabsTrigger value="perfil" className="gap-1 sm:gap-2">
+              <User className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Perfil</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="agenda">
           <AgendaTab userId={user.id} />
         </TabsContent>
@@ -411,7 +413,7 @@ function WeekView({
           <button
             key={day.toISOString()}
             onClick={() => onPickDay(day)}
-            className={`flex min-h-[180px] flex-col rounded-2xl border bg-background p-3 text-left transition hover:border-primary ${isToday ? "border-primary" : "border-border"}`}
+            className={`flex min-h-[100px] sm:min-h-[180px] flex-col rounded-2xl border bg-background p-3 text-left transition hover:border-primary ${isToday ? "border-primary" : "border-border"}`}
           >
             <div className="mb-2 flex items-baseline justify-between">
               <div className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -506,8 +508,8 @@ function ApptCard({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {appt.patient && onShowHistory && (
-          <Button size="sm" variant="outline" onClick={() => onShowHistory(appt.patient)}>
-            <History className="mr-1 h-4 w-4" /> Historial
+          <Button size="sm" variant="outline" onClick={() => onShowHistory(appt.patient)} className="min-h-[44px]">
+            <History className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Historial</span>
           </Button>
         )}
         <span
@@ -518,18 +520,18 @@ function ApptCard({
         {appt.status !== "confirmado" &&
           appt.status !== "cancelado" &&
           appt.status !== "completado" && (
-            <Button size="sm" onClick={() => onUpdateStatus(appt.id, "confirmado")}>
-              <Check className="mr-1 h-4 w-4" /> Confirmar
+            <Button size="sm" onClick={() => onUpdateStatus(appt.id, "confirmado")} className="min-h-[44px]">
+              <Check className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Confirmar</span>
             </Button>
           )}
         {appt.status !== "completado" && appt.status !== "cancelado" && (
-          <Button size="sm" variant="outline" onClick={() => setReschedOpen(true)}>
-            Reprogramar
+          <Button size="sm" variant="outline" onClick={() => setReschedOpen(true)} className="min-h-[44px]">
+            <span className="hidden sm:inline">Reprogramar</span><span className="sm:hidden">Reprog.</span>
           </Button>
         )}
         {appt.status === "confirmado" && (
-          <Button size="sm" variant="outline" onClick={() => onUpdateStatus(appt.id, "completado")}>
-            Completado
+          <Button size="sm" variant="outline" onClick={() => onUpdateStatus(appt.id, "completado")} className="min-h-[44px]">
+            <span className="hidden sm:inline">Completado</span><span className="sm:hidden">Compl.</span>
           </Button>
         )}
         {appt.status !== "cancelado" && appt.status !== "completado" && (
@@ -537,8 +539,9 @@ function ApptCard({
             size="sm"
             variant="destructive"
             onClick={() => onUpdateStatus(appt.id, "cancelado")}
+            className="min-h-[44px]"
           >
-            <X className="mr-1 h-4 w-4" /> Cancelar
+            <X className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Cancelar</span>
           </Button>
         )}
       </div>
@@ -822,14 +825,14 @@ function ScheduleTab({ userId }: { userId: string }) {
                         type="time"
                         value={slot.startTime}
                         onChange={(e) => updateSlot(actualIdx, "startTime", e.target.value)}
-                        className="w-32"
+                        className="w-24 sm:w-32"
                       />
                       <span className="text-muted-foreground">a</span>
                       <Input
                         type="time"
                         value={slot.endTime}
                         onChange={(e) => updateSlot(actualIdx, "endTime", e.target.value)}
-                        className="w-32"
+                        className="w-24 sm:w-32"
                       />
                       <Button size="sm" variant="destructive" onClick={() => removeSlot(actualIdx)}>
                         <X className="h-4 w-4" />

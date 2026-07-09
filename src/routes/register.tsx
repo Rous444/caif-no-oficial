@@ -82,7 +82,7 @@ function RegisterPage() {
           <p className="mt-1 text-sm text-muted-foreground">Bienvenido</p>
 
           <form onSubmit={onSubmit} className="mt-5 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="firstName">Nombre</Label>
                 <Input
@@ -119,7 +119,7 @@ function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="phone">Teléfono</Label>
                 <Input

@@ -123,26 +123,41 @@ export function SiteHeader() {
       {open && (
         <div id="mobile-nav" className="border-t border-border bg-background md:hidden">
           <div className="space-y-1 px-4 py-3">
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col gap-1 pt-2">
               {user ? (
                 <>
-                  <Button className="flex-1" onClick={() => router.navigate({ to: "/dashboard" })}>
-                    Mi panel
+                  <Button variant="outline" className="w-full justify-start" onClick={() => { router.navigate({ to: "/dashboard" }); setOpen(false); }}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" /> Mi panel
                   </Button>
-                  <Button variant="outline" className="flex-1" onClick={() => signOut()}>
-                    Salir
+                  {hasRole("medico") && (
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { router.navigate({ to: "/doctor" }); setOpen(false); }}>
+                      <Stethoscope className="mr-2 h-4 w-4" /> Mi agenda
+                    </Button>
+                  )}
+                  {hasRole("recepcionista") && (
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { router.navigate({ to: "/staff" }); setOpen(false); }}>
+                      <CalendarDays className="mr-2 h-4 w-4" /> Agenda general
+                    </Button>
+                  )}
+                  {hasRole("admin") && (
+                    <Button variant="ghost" className="w-full justify-start" onClick={() => { router.navigate({ to: "/admin" }); setOpen(false); }}>
+                      <Shield className="mr-2 h-4 w-4" /> Admin
+                    </Button>
+                  )}
+                  <Button variant="outline" className="w-full justify-start" onClick={() => signOut()}>
+                    <LogOut className="mr-2 h-4 w-4" /> Salir
                   </Button>
                 </>
               ) : (
                 <>
                   <Button
                     variant="outline"
-                    className="flex-1"
-                    onClick={() => router.navigate({ to: "/login" })}
+                    className="w-full"
+                    onClick={() => { router.navigate({ to: "/login" }); setOpen(false); }}
                   >
                     Ingresar
                   </Button>
-                  <Button className="flex-1" onClick={() => router.navigate({ to: "/register" })}>
+                  <Button className="w-full" onClick={() => { router.navigate({ to: "/register" }); setOpen(false); }}>
                     Registrarse
                   </Button>
                 </>

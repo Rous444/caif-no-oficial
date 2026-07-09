@@ -8,82 +8,86 @@
 ```bash
 bun dev               # docker compose up -d (PostgreSQL) then vite dev (port 8080)
 bun build             # Production build (outputs dist/client + dist/server)
-bun build:dev         # Development build (Vite)
-bun preview           # Preview production build (static client only — use start.js for SSR)
-bun lint              # ESLint (run before commit)
-bun format            # Prettier format
+bun build:dev         # Vite build --mode development
+bun preview           # vite preview (static client only — use start.js for SSR)
+bun lint              # eslint . (run before commit)
+bun format            # prettier --write .
 bun test              # vitest run
 bun test:watch        # vitest
 bun docker:up         # docker compose up -d (PostgreSQL 16, port 5432)
 bun docker:down       # docker compose down
 bun db:push           # drizzle-kit push (CREATE/ALTER tables)
-bun db:generate       # drizzle-kit generate (SQL migrations)
+bun db:generate       # drizzle-kit generate (migrations to src/db/migrations/)
 bun db:migrate        # drizzle-kit migrate
 bun db:studio         # Drizzle Studio GUI
 bun db:seed           # bun run src/db/seed.ts (8 specialties + admin user)
 ```
 
-CI order (`.github/workflows/ci.yml`): `bun run lint` → `bunx tsc --noEmit` → `bun run test` → `bun run build`. All steps `continue-on-error: true`. There is no `typecheck` npm script — CI invokes `tsc` directly.
+CI (`.github/workflows/ci.yml`): `bun run lint` → `bunx tsc --noEmit` → `bun run test` → `bun run build`. All steps `continue-on-error: true`. No `typecheck` npm script — CI runs `tsc` directly.
+
+## Architecture
+
+- **Vite config**: `vite.config.ts` uses `@lovable.dev/vite-tanstack-config` which bundles tanstackStart, viteReact, tailwindcss, tsConfigPaths, and nitro build. Do NOT add these plugins manually.
+- **Server entry**: `src/server.ts` launches the daily scheduler + wraps SSR with error capture. Exports `{ fetch() }` for the runtime.
+- **App entry**: `src/start.ts` creates `startInstance` with middlewares for auth (`/api/auth/*`) and WhatsApp (`/api/whatsapp/*`). NOT TanStack routes.
+- **Routing**: File-based in `src/routes/`. `routeTree.gen.ts` is auto-generated — do NOT edit.
+- **Server-only code**: Use `*.server.ts` suffix or `@tanstack/react-start/server-only` (NOT `server-only` package — enforced by ESLint `no-restricted-imports`).
+- **Dev port**: 8080 everywhere (`auth-client.ts`, `.env` `BETTER_AUTH_URL`).
+- **CSS**: Tailwind v4 CSS-first via `@tailwindcss/vite` plugin (no `tailwind.config.*`). Styles in `src/styles.css` imported via `?url` in `__root.tsx` as a link rel=stylesheet.
+
+## Auth
+
+- Use `useAuth()` hook from `@/lib/auth` (`.tsx`, not `.ts`). Never use `useSession` from `better-auth/react` or `authClient` directly in components.
+- `AuthProvider` + `PasswordChangeGuard` wrap the app in `__root.tsx`. Users with `mustChangePassword=true` are redirected to `/change-password`.
+- Roles: `paciente`, `medico`, `recepcionista`, `admin`.
+
+## Server Functions
+
+- `createServerFn` from `@tanstack/react-start` with `.inputValidator()` (NOT `.validator()`).
+- GET functions cannot use `.inputValidator()` — use POST.
+- All server function files in `src/lib/api/` (10 files): `admin-doctors`, `admin-users`, `appointments`, `doctor-schedule`, `example`, `gallery`, `medical-records`, `profile`, `specialties` — plus `db-helpers.ts` (NOT a server fn, direct db queries). Importing `db-helpers.ts` from a route file leaks `postgres` into the client bundle — always call server fns from routes.
+
+## Database
+
+- Drizzle ORM with `postgres-js` driver. `src/db/index.ts` creates `db` client. Config in `drizzle.config.ts` (schema: `src/db/schema.ts`, dialect: postgresql, migrations dir: `src/db/migrations/`).
+- 13 tables: `user`, `session`, `account`, `verification` (better-auth) + `patients`, `specialties`, `doctors`, `doctorSpecialties` (junction, unique `doctorId+specialtyId`), `doctorSchedules`, `appointments`, `galleryImages`, `medicalRecords`, `notifications`.
+
+## Business Rules
+
+- **Softlock**: System unavailable outside 08:00–21:00 ARG time. `SoftlockBanner` in `DashboardLayout` shows banner; `throwIfSoftlocked()` blocks server operations.
+- **Daily scheduler**: `src/lib/scheduler.ts` runs at 21:00 ARG via `node-cron`. Generates next-day turnero PDF via `pdf-turnero.ts` and sends via WhatsApp (`whatsapp.ts`). WhatsApp client starts on server boot.
+- **WhatsApp endpoints** (middleware in `start.ts`): `/api/whatsapp/status`, `/api/whatsapp/restart`, `/api/whatsapp/qr-image`.
 
 ## Production (Render)
 
-- **Dockerfile**: Multi-stage build. Stage 1: install Bun + deps + build. Stage 2: Node 20 + Chromium (for whatsapp-web.js Puppeteer), runs `start.js`.
-- **start.js**: Custom Node HTTP server (ESM). Serves static assets from `dist/client/` and forwards all other requests to the TanStack Start SSR handler (`dist/server/server.js`).
-- **render.yaml**: Blueprint — web service (Professional plan) + PostgreSQL (Starter plan). Persistent disk at `/app/whatsapp-session` for WhatsApp session persistence.
-- **Env vars**: `BETTER_AUTH_URL`, `DATABASE_URL`, `CHROMIUM_PATH`, `TZ=America/Argentina/Buenos_Aires`.
-- **Deploy**: Connect repo to Render, use Blueprint (render.yaml). Run `bun db:push && bun db:seed` as a one-off job after first deploy.
-- **`.dockerignore`**: Must stay in sync with `.gitignore`. Without it the Docker build context balloons to >500MB and Render builds time out.
+- **Dockerfile**: Multi-stage. Stage 1: Bunny install + build. Stage 2: Node 20 + Chromium (for whatsapp-web.js Puppeteer), runs `start.js`. No Bun in runtime image.
+- **start.js**: Custom Node HTTP server (ESM). Serves `dist/client/` static assets; proxies everything else to `dist/server/server.js` SSR handler. Port from `$PORT` env (default 8080).
+- **render.yaml**: Blueprint — web service (Professional) + PostgreSQL (Starter). Persistent disk at `/app/whatsapp-session`. Env: `BETTER_AUTH_URL`, `DATABASE_URL`, `CHROMIUM_PATH`, `TZ=America/Argentina/Buenos_Aires`.
+- **`.dockerignore`**: Must stay in sync with `.gitignore`. Without it build context balloons and Render builds time out.
 
-## Key Conventions
+## Seed Defaults
 
-- **Path alias**: `@/*` → `src/*` (tsconfig.json, vitest.config.ts, vite config)
-- **Vite config**: `vite.config.ts` uses `@lovable.dev/vite-tanstack-config` which bundles tanstackStart, viteReact, tailwindcss v4, tsConfigPaths, and nitro build. Do NOT add these plugins manually.
-- **Dev server port**: 8080 everywhere (`auth-client.ts` baseURL, `auth.server.ts` baseURL, `.env` `BETTER_AUTH_URL`).
-- **Server entry**: `src/server.ts` wraps TanStack Start SSR entry with error capture and h3 error normalization.
-- **Auth API**: Handled via middleware in `src/start.ts:19-28` — intercepts `/api/auth/*` and calls `auth.handler(request)`. NOT a TanStack route.
-- **Routing**: File-based in `src/routes/`. `routeTree.gen.ts` is auto-generated — do NOT edit by hand.
-- **Server-only code**: Use `*.server.ts` suffix or `@tanstack/react-start/server-only` (NOT `server-only` pkg — enforced by ESLint `no-restricted-imports`).
-- **Database**: Drizzle ORM with `postgres-js` driver. Module `src/db/index.ts` creates the db client. 13 tables in `src/db/schema.ts`: better-auth tables (`user`, `session`, `account`, `verification`) + app tables (`patients`, `specialties`, `doctors`, `doctorSpecialties` (junction), `doctorSchedules`, `appointments`, `galleryImages`, `medicalRecords`, `notifications`).
-- **Auth**: Use `useAuth()` hook from `@/lib/auth` (not `useSession` from better-auth/react). `AuthProvider` wraps the app in `__root.tsx`. Roles: `paciente`, `medico`, `recepcionista`, `admin`.
-- **Password change guard**: `src/components/PasswordChangeGuard.tsx` wraps the app in `__root.tsx` and redirects users with `mustChangePassword=true` to `/change-password`.
-- **Server functions**: `createServerFn` from `@tanstack/react-start` with `.inputValidator()` (not `.validator()`). GET functions cannot use `.inputValidator()` — use POST. Pattern in `src/lib/api/example.functions.ts`.
-- **Server function files**: `src/lib/api/` — 9 files: `admin-doctors`, `admin-users`, `appointments`, `db-helpers.ts` (NOT a server fn — direct db queries), `doctor-schedule`, `example`, `gallery`, `medical-records`, `specialties`. Importing `db-helpers.ts` from a route file leaks `postgres` into the client bundle — always call server fns from routes, not query helpers directly.
-- **UI**: shadcn-style Radix primitives in `src/components/ui/` via `components.json`. `cn()` from `clsx` + `tailwind-merge` in `src/lib/utils.ts`.
-- **Tailwind v4**: CSS-first via `@tailwindcss/vite` plugin (no `tailwind.config.*`). Global styles in `src/styles.css` imported via `?url` in `__root.tsx`.
-- **Shared layout**: All authed routes wrap content in `DashboardLayout` from `src/components/layout/DashboardLayout.tsx`.
-- **Seed defaults**: `bun db:seed` creates 8 specialties and admin `admin@medicare.com` / `AdminMediCare2026!` (`mustChangePassword: true`). Default doctor password: `MediCare2026!`. Both overridable via `DEFAULT_DOCTOR_PASSWORD` / `DEFAULT_ADMIN_PASSWORD` env vars.
-- **Admin panel**: `/admin` has 4 tabs — Usuarios, Especialidades, Médicos, Galería. Gallery tab is a separate component at `src/components/admin/GalleryTab.tsx`.
-
-## Routes
-
-| Route              | Role                | File                                 |
-| ------------------ | ------------------- | ------------------------------------ |
-| `/`                | Public              | `src/routes/index.tsx`               |
-| `/login`           | Public              | `src/routes/login.tsx`               |
-| `/register`        | Public              | `src/routes/register.tsx`            |
-| `/dashboard`       | paciente            | `src/routes/dashboard.tsx`           |
-| `/doctor`          | medico              | `src/routes/doctor.tsx`              |
-| `/staff`           | recepcionista/admin | `src/routes/staff.tsx`               |
-| `/recepcionista`   | recepcionista/admin | `src/routes/recepcionista.tsx`       |
-| `/admin`           | admin               | `src/routes/admin.tsx`               |
-| `/change-password` | any authed          | `src/routes/change-password.tsx`     |
-
-## Known Issues
-
-- **Lint**: pre-existing `no-explicit-any` errors in animation components and legacy routes.
-- **TypeScript**: `tsc --noEmit` passes (0 errors).
-- **Build**: passes.
-- **No test files yet** — vitest infra is ready (`src/test/setup.ts`).
+- Admin: `admin@medicare.com` / `AdminMediCare2026!` (`mustChangePassword: true`)
+- Doctor default password: `MediCare2026!`
+- Both overridable via `DEFAULT_DOCTOR_PASSWORD` / `DEFAULT_ADMIN_PASSWORD` env vars.
 
 ## Gotchas
 
 - Requires Docker Desktop for PostgreSQL. First setup: `bun docker:up` then `bun db:push`.
-- `bun dev` runs `docker compose up -d` BEFORE `vite dev`. This starts PostgreSQL. Make sure Docker is running.
+- `bun dev` starts Docker PostgreSQL before Vite. Make sure Docker is running.
 - `bunfig.toml` has 24h supply-chain guard (`minimumReleaseAge = 86400`); `@lovable.dev/vite-tanstack-config` excluded.
-- `BETTER_AUTH_SECRET` in `.env` is a dev-only dummy value committed to the repo (`.env` is NOT gitignored, only `*.local` is). Never commit real secrets — use `.env.local` for production values.
+- `.env` is committed (only `*.local` is gitignored). `BETTER_AUTH_SECRET` in `.env` is a dev dummy. Never commit real secrets — use `.env.local`.
 - `package-lock.json` exists alongside `bun.lock` — use `bun`, never `npm`/`pnpm`/`yarn`.
 - Nested route param: `$id` (bare `$`). Splat: `$.tsx` → `_splat` param.
-- `src/integrations/supabase/` and `src/integrations/lovable/` deleted — do not recreate.
-- `@typescript-eslint/no-unused-vars` disabled; `no-explicit-any` errors exist in legacy code.
-- `verbatimModuleSyntax: false` in tsconfig — allows non-verbatim imports.
-- `authClient` (`@/lib/auth-client`) has `baseURL: "http://localhost:8080"` — do NOT use it directly in components; use `useAuth()` hook instead.
+- `verbatimModuleSyntax: false` — allows non-verbatim imports.
+- `@typescript-eslint/no-unused-vars` is off. Most lint errors are `prettier/prettier` CRLF line-ending issues.
+- `components.json` has `@react-bits` registry configured.
+- Admin gallery tab: separate component at `src/components/admin/GalleryTab.tsx`.
+- Path alias: `@/*` → `src/*` (tsconfig, vitest, vite config).
+
+## Mobile Responsive Conventions
+
+- Tab bars with many items: wrap `<TabsList>` in `<div className="overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">` with icon-only labels (`<span className="hidden sm:inline">`). Used in doctor, staff, admin panels.
+- Data tables → card lists on mobile: `hidden md:block` wrapper for `<table>` + `md:hidden space-y-3` for cards. Used in admin UsersTab, DoctorsTab.
+- Touch targets: icon-only action buttons get `min-h-[44px] min-w-[44px]`.
+- Hover-only overlays (admin gallery): add `opacity-100 md:opacity-0` so touch users always see controls.

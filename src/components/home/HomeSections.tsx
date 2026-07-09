@@ -97,7 +97,7 @@ export function Hero({ user, roles }: { user: any | null; roles: AppRole[] }) {
             <SplitText
               text={isAuthed ? "Bienvenido de vuelta." : "Tu salud, en las mejores manos."}
               tag="h1"
-              className="mt-5 font-display text-5xl leading-[1.05] text-foreground md:text-6xl"
+              className="mt-5 font-display text-4xl sm:text-5xl leading-[1.05] text-foreground md:text-6xl"
               splitType="words"
               delay={30}
               duration={0.6}
@@ -213,7 +213,7 @@ export function SpecialtiesGrid() {
             <span className="text-xs font-medium uppercase tracking-widest text-teal">
               Especialidades
             </span>
-            <h2 className="mt-2 font-display text-4xl text-foreground md:text-5xl">
+            <h2 className="mt-2 font-display text-3xl sm:text-4xl text-foreground md:text-5xl">
               Atención integral
             </h2>
           </div>
@@ -223,10 +223,10 @@ export function SpecialtiesGrid() {
           </p>
         </div>
       </FadeContent>
-      <div className="grid auto-rows-[140px] grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid auto-rows-auto grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4">
         {specialties?.map((s, i) => {
           const Icon = iconMap[s.icon ?? "Stethoscope"] ?? Stethoscope;
-          const sizes = ["row-span-2", "", "", "col-span-2", "", "row-span-2", "", "col-span-2"];
+          const sizes = ["sm:row-span-2", "", "", "sm:col-span-2", "", "sm:row-span-2", "", "sm:col-span-2"];
           return (
             <FadeContent key={s.id} threshold={0.1} duration={600} delay={i * 80}>
               <div
@@ -287,7 +287,7 @@ export function GallerySection() {
             <span className="text-xs font-medium uppercase tracking-widest text-teal">
               Conocenos
             </span>
-            <h2 className="mt-2 font-display text-4xl text-foreground md:text-5xl">
+            <h2 className="mt-2 font-display text-3xl sm:text-4xl text-foreground md:text-5xl">
               Nuestras instalaciones
             </h2>
           </div>
@@ -296,7 +296,7 @@ export function GallerySection() {
           {images.slice(0, 8).map((img, i) => (
             <FadeContent key={img.id} threshold={0.1} duration={600} delay={i * 60}>
               <div
-                className={`group relative overflow-hidden rounded-2xl ${i === 0 ? "col-span-2 row-span-2 aspect-square" : "aspect-square"}`}
+                className={`group relative overflow-hidden rounded-2xl ${i === 0 ? "sm:col-span-2 sm:row-span-2 aspect-square" : "aspect-square"}`}
               >
                 <img
                   src={img.url}
@@ -323,7 +323,7 @@ export function ContactSection() {
             <span className="text-xs font-medium uppercase tracking-widest text-teal">
               Contacto
             </span>
-            <h2 className="mt-2 font-display text-4xl text-foreground md:text-5xl">
+            <h2 className="mt-2 font-display text-3xl sm:text-4xl text-foreground md:text-5xl">
               Estamos para vos
             </h2>
             <p className="mt-4 max-w-md text-muted-foreground">
@@ -356,7 +356,7 @@ export function ContactSection() {
             <iframe
               title="Ubicación del consultorio"
               src="https://www.google.com/maps?q=CAIF+Consultorios,-38.8267893,-68.0685319&output=embed"
-              className="h-full min-h-[360px] w-full"
+              className="h-full min-h-[250px] sm:min-h-[360px] w-full"
               loading="lazy"
             />
           </div>

@@ -371,7 +371,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
   } else {
     const availableSlots = slots.filter((s) => s.available);
     availabilityContent = (
-      <div className="mt-2 grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+      <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2 max-h-48 overflow-y-auto">
         {availableSlots.length > 0 ? (
           availableSlots.map((s) => (
             <Button
@@ -380,6 +380,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
               size="sm"
               variant={slot === s.value ? "default" : "outline"}
               onClick={() => setSlot(s.value)}
+              className="text-xs sm:text-sm min-h-[44px]"
             >
               {s.label}
             </Button>
@@ -395,7 +396,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-primary/50 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-elegant">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-elegant overflow-y-auto max-h-[85vh]">
         <h3 className="font-display text-2xl">
           {step === "form" ? "Nuevo turno" : "Confirmá tu turno"}
         </h3>

@@ -185,7 +185,7 @@ export function GalleryTab() {
                 alt={img.title ?? ""}
                 className="aspect-square w-full object-cover"
               />
-              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-primary/60 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-primary/60 opacity-0 transition-opacity group-hover:opacity-100 opacity-100 md:opacity-0">
                 <Button size="sm" variant="outline" onClick={() => handleEdit(img)}>
                   <Edit className="h-4 w-4" />
                 </Button>

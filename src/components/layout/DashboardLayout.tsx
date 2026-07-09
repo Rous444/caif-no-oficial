@@ -104,7 +104,7 @@ export function DashboardLayout({ children, title, description }: DashboardLayou
       >
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h1 className="font-display text-4xl text-foreground">{title}</h1>
+            <h1 className="font-display text-2xl sm:text-4xl text-foreground">{title}</h1>
             {description && <p className="mt-1 text-muted-foreground">{description}</p>}
           </div>
         </div>
