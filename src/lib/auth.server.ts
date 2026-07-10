@@ -11,6 +11,9 @@ export const auth = betterAuth({
     schema,
   }),
   plugins: [tanstackStartCookies()],
+  advanced: {
+    disableCSRFCheck: true,
+  },
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:8080"],
   emailAndPassword: {
     enabled: true,

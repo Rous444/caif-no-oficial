@@ -60,9 +60,6 @@ const server = createServer(async (req, res) => {
     for (let i = 0; i < nodeReq.rawHeaders.length; i += 2) {
       headers.set(nodeReq.rawHeaders[i], nodeReq.rawHeaders[i + 1]);
     }
-    // Ensure Origin matches the reconstructed URL for proxy environments
-    headers.set("origin", new URL(`${proto}://${host}`).origin);
-
     let body;
     if (req.method !== "GET" && req.method !== "HEAD") {
       body = await new Promise((resolve) => {
