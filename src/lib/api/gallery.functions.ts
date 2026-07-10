@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { db } from "@/db";
 import { galleryImages } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 
 export const getActiveGalleryImages = createServerFn({ method: "GET" }).handler(async () => {
   return db
@@ -131,3 +131,74 @@ export const deleteGalleryImage = createServerFn({ method: "POST" })
     await db.delete(galleryImages).where(eq(galleryImages.id, data.id));
     return { success: true };
   });
+
+/**
+ * Hide a default stock image across all devices.
+ * Stores a record in gallery_images with imageType='hidden_default'
+ * and the defaultId stored in the title field.
+ */
+export const hideDefaultImage = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      defaultId: z.string(),
+      url: z.string(),
+      title: z.string(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    // Remove any existing hidden_default record for this defaultId
+    await db
+      .delete(galleryImages)
+      .where(
+        and(
+          eq(galleryImages.imageType, "hidden_default"),
+          eq(galleryImages.title, data.defaultId),
+        ),
+      );
+
+    // Insert new hidden record
+    await db.insert(galleryImages).values({
+      url: data.url,
+      title: data.defaultId,
+      imageType: "hidden_default",
+      isActive: false,
+      sortOrder: 0,
+    });
+
+    return { success: true };
+  });
+
+/**
+ * Unhide a default stock image across all devices.
+ * Removes the hidden_default record for the given defaultId.
+ */
+export const unhideDefaultImage = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ defaultId: z.string() }))
+  .handler(async ({ data }) => {
+    await db
+      .delete(galleryImages)
+      .where(
+        and(
+          eq(galleryImages.imageType, "hidden_default"),
+          eq(galleryImages.title, data.defaultId),
+        ),
+      );
+    return { success: true };
+  });
+
+/**
+ * Get the IDs of default stock images that are hidden globally.
+ * Returns an array of default IDs (e.g., ["default-1", "default-3"]).
+ */
+export const getHiddenDefaultIds = createServerFn({ method: "GET" }).handler(async () => {
+  const records = await db
+    .select({ title: galleryImages.title })
+    .from(galleryImages)
+    .where(
+      and(
+        eq(galleryImages.imageType, "hidden_default"),
+        eq(galleryImages.isActive, false),
+      ),
+    );
+  return records.map((r) => r.title).filter(Boolean) as string[];
+});

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getActiveSpecialties } from "@/lib/api/specialties.functions";
-import { getActiveGalleryImages } from "@/lib/api/gallery.functions";
+import { getActiveGalleryImages, getHiddenDefaultIds } from "@/lib/api/gallery.functions";
 import {
   ArrowRight,
   Calendar,
@@ -271,10 +271,10 @@ export function GallerySection() {
     { id: "default-3", url: g3, title: "Pasillos" },
     { id: "default-4", url: g4, title: "Pediatría" },
   ];
-  const hiddenDefaults: string[] =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("gallery_hidden_defaults") || "[]")
-      : [];
+  const { data: hiddenDefaults = [] } = useQuery({
+    queryKey: ["gallery-hidden-defaults"],
+    queryFn: () => getHiddenDefaultIds(),
+  });
   const { data } = useQuery({
     queryKey: ["gallery"],
     queryFn: () => getActiveGalleryImages(),

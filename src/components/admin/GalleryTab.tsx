@@ -29,6 +29,9 @@ import {
   createGalleryImage,
   updateGalleryImage,
   deleteGalleryImage,
+  hideDefaultImage,
+  unhideDefaultImage,
+  getHiddenDefaultIds,
 } from "@/lib/api/gallery.functions";
 import g1 from "@/assets/clinic-1.jpg";
 import g2 from "@/assets/clinic-2.jpg";
@@ -78,30 +81,6 @@ function compressImage(file: File): Promise<{ dataUrl: string; size: number }> {
   });
 }
 
-function useHiddenDefaults() {
-  const [hidden, setHidden] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("gallery_hidden_defaults") || "[]");
-    } catch {
-      return [];
-    }
-  });
-  const toggle = (id: string) => {
-    setHidden((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      localStorage.setItem("gallery_hidden_defaults", JSON.stringify(next));
-      return next;
-    });
-  };
-  const show = (id: string) => {
-    setHidden((prev) => {
-      const next = prev.filter((x) => x !== id);
-      localStorage.setItem("gallery_hidden_defaults", JSON.stringify(next));
-      return next;
-    });
-  };
-  return { hidden, toggle, show };
-}
 
 function getImageSrc(img: { url: string | null; fileData?: string | null }): string {
   return img.fileData || img.url || "";
@@ -119,7 +98,10 @@ export function GalleryTab() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const { hidden, show: unhideDefault } = useHiddenDefaults();
+  const { data: hidden = [] } = useQuery({
+    queryKey: ["gallery-hidden-defaults"],
+    queryFn: () => getHiddenDefaultIds(),
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: dbImages } = useQuery({
@@ -132,6 +114,23 @@ export function GalleryTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gallery"] });
       toast.success("Imagen eliminada");
+    },
+  });
+
+  const hideDefaultMut = useMutation({
+    mutationFn: (params: { defaultId: string; url: string; title: string }) =>
+      hideDefaultImage({ data: params }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gallery-hidden-defaults"] });
+      queryClient.invalidateQueries({ queryKey: ["gallery"] });
+    },
+  });
+
+  const unhideDefaultMut = useMutation({
+    mutationFn: (defaultId: string) => unhideDefaultImage({ data: { defaultId } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gallery-hidden-defaults"] });
+      queryClient.invalidateQueries({ queryKey: ["gallery"] });
     },
   });
 
@@ -240,10 +239,15 @@ export function GalleryTab() {
           },
         });
         if (editingId && isDefault(editingId)) {
-          const hs = JSON.parse(localStorage.getItem("gallery_hidden_defaults") || "[]");
-          if (!hs.includes(editingId)) {
-            hs.push(editingId);
-            localStorage.setItem("gallery_hidden_defaults", JSON.stringify(hs));
+          const defaultImg = DEFAULT_IMAGES.find((d) => d.id === editingId);
+          if (defaultImg) {
+            await hideDefaultImage({
+              data: {
+                defaultId: defaultImg.id,
+                url: defaultImg.url,
+                title: defaultImg.title,
+              },
+            });
           }
         }
         toast.success(
@@ -261,12 +265,14 @@ export function GalleryTab() {
 
   const handleDelete = (id: string) => {
     if (isDefault(id)) {
-      const hs = JSON.parse(localStorage.getItem("gallery_hidden_defaults") || "[]");
-      if (!hs.includes(id)) {
-        hs.push(id);
-        localStorage.setItem("gallery_hidden_defaults", JSON.stringify(hs));
+      const defaultImg = DEFAULT_IMAGES.find((d) => d.id === id);
+      if (defaultImg) {
+        hideDefaultMut.mutate({
+          defaultId: defaultImg.id,
+          url: defaultImg.url,
+          title: defaultImg.title,
+        });
       }
-      queryClient.invalidateQueries({ queryKey: ["gallery"] });
       toast.success("Imagen de stock ocultada");
     } else {
       setDeleteConfirm(id);
@@ -331,8 +337,7 @@ export function GalleryTab() {
                 <span className="text-muted-foreground">{d.title}</span>
                 <button
                   onClick={() => {
-                    unhideDefault(d.id);
-                    queryClient.invalidateQueries({ queryKey: ["gallery"] });
+                    unhideDefaultMut.mutate(d.id);
                   }}
                   className="text-primary hover:text-primary/80"
                 >
