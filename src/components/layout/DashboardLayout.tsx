@@ -1,5 +1,14 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { Activity, ChevronDown, LayoutDashboard, Stethoscope, CalendarDays, Shield, LogOut, Home } from "lucide-react";
+import {
+  Activity,
+  ChevronDown,
+  LayoutDashboard,
+  Stethoscope,
+  CalendarDays,
+  Shield,
+  LogOut,
+  Home,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -43,7 +52,12 @@ export function DashboardLayout({ children, title, description }: DashboardLayou
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1" aria-label="Abrir menú de accesos">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  aria-label="Abrir menú de accesos"
+                >
                   Mis accesos
                   <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </Button>

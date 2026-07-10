@@ -96,6 +96,7 @@ No new dependencies. No version changes. The existing stack (React 19, TanStack 
 No existing test files to modify. The project has vitest infra ready but no test files yet.
 
 ### Validation Strategy:
+
 1. **Manual test**: Create a doctor with Wednesday schedule. From recepcionista account, create an appointment for Wednesday. Verify it shows on Wednesday, not Thursday.
 2. **Manual test**: Book two appointments for the same doctor at the same time from patient account. Second attempt should fail with "horario ya reservado" error.
 3. **Manual test**: Book an appointment, cancel it, then book again in the same slot. Should succeed.

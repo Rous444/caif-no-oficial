@@ -391,18 +391,35 @@ function ApptCard({
           {appt.status}
         </span>
         {appt.status !== "confirmado" && appt.status !== "cancelado" && (
-          <Button size="sm" onClick={() => onUpdateStatus(appt.id, "confirmado")} className="min-h-[44px]">
-            <span className="hidden sm:inline">Confirmar</span><span className="sm:hidden">Conf.</span>
+          <Button
+            size="sm"
+            onClick={() => onUpdateStatus(appt.id, "confirmado")}
+            className="min-h-[44px]"
+          >
+            <span className="hidden sm:inline">Confirmar</span>
+            <span className="sm:hidden">Conf.</span>
           </Button>
         )}
         {appt.status !== "completado" && appt.status !== "cancelado" && (
-          <Button size="sm" variant="outline" onClick={() => setReschedOpen(true)} className="min-h-[44px]">
-            <span className="hidden sm:inline">Reprogramar</span><span className="sm:hidden">Reprog.</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setReschedOpen(true)}
+            className="min-h-[44px]"
+          >
+            <span className="hidden sm:inline">Reprogramar</span>
+            <span className="sm:hidden">Reprog.</span>
           </Button>
         )}
         {appt.status === "confirmado" && (
-          <Button size="sm" variant="outline" onClick={() => onUpdateStatus(appt.id, "completado")} className="min-h-[44px]">
-            <span className="hidden sm:inline">Completado</span><span className="sm:hidden">Compl.</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onUpdateStatus(appt.id, "completado")}
+            className="min-h-[44px]"
+          >
+            <span className="hidden sm:inline">Completado</span>
+            <span className="sm:hidden">Compl.</span>
           </Button>
         )}
         {appt.status !== "cancelado" && (
@@ -412,7 +429,8 @@ function ApptCard({
             onClick={() => onUpdateStatus(appt.id, "cancelado")}
             className="min-h-[44px]"
           >
-            <span className="hidden sm:inline">Cancelar</span><span className="sm:hidden">Canc.</span>
+            <span className="hidden sm:inline">Cancelar</span>
+            <span className="sm:hidden">Canc.</span>
           </Button>
         )}
       </div>
@@ -564,7 +582,9 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
   });
 
   const [specialties, setSpecialties] = useState<{ id: string; name: string }[]>([]);
-  const [scheduleData, setScheduleData] = useState<{ weekday: number; startTime: string; endTime: string }[]>([]);
+  const [scheduleData, setScheduleData] = useState<
+    { weekday: number; startTime: string; endTime: string }[]
+  >([]);
 
   const filteredDoctors = useMemo(() => {
     if (!selectedSpecialtyId) return [];
@@ -937,7 +957,9 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
                     {filteredDoctors.map((d) => (
                       <SelectItem key={d.id} value={d.id} className="py-3">
                         <div>
-                          <div>{d.user?.firstName} {d.user?.lastName}</div>
+                          <div>
+                            {d.user?.firstName} {d.user?.lastName}
+                          </div>
                           {d.bio && (
                             <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                               {d.bio}

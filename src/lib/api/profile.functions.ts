@@ -59,11 +59,9 @@ export const updateProfile = createServerFn({ method: "POST" })
         if (dup.length) throw new Error("Ya existe un usuario con este email");
       }
       updateData.email = fields.email;
-      updateData.name = `${updateData.firstName ?? ""} ${updateData.lastName ?? ""}`.trim() || fields.email;
+      updateData.name =
+        `${updateData.firstName ?? ""} ${updateData.lastName ?? ""}`.trim() || fields.email;
     }
-    await db
-      .update(user)
-      .set(updateData)
-      .where(eq(user.id, userId));
+    await db.update(user).set(updateData).where(eq(user.id, userId));
     return { success: true };
   });

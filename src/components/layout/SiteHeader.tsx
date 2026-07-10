@@ -126,25 +126,57 @@ export function SiteHeader() {
             <div className="flex flex-col gap-1 pt-2">
               {user ? (
                 <>
-                  <Button variant="outline" className="w-full justify-start" onClick={() => { router.navigate({ to: "/dashboard" }); setOpen(false); }}>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      router.navigate({ to: "/dashboard" });
+                      setOpen(false);
+                    }}
+                  >
                     <LayoutDashboard className="mr-2 h-4 w-4" /> Mi panel
                   </Button>
                   {hasRole("medico") && (
-                    <Button variant="ghost" className="w-full justify-start" onClick={() => { router.navigate({ to: "/doctor" }); setOpen(false); }}>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        router.navigate({ to: "/doctor" });
+                        setOpen(false);
+                      }}
+                    >
                       <Stethoscope className="mr-2 h-4 w-4" /> Mi agenda
                     </Button>
                   )}
                   {hasRole("recepcionista") && (
-                    <Button variant="ghost" className="w-full justify-start" onClick={() => { router.navigate({ to: "/staff" }); setOpen(false); }}>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        router.navigate({ to: "/staff" });
+                        setOpen(false);
+                      }}
+                    >
                       <CalendarDays className="mr-2 h-4 w-4" /> Agenda general
                     </Button>
                   )}
                   {hasRole("admin") && (
-                    <Button variant="ghost" className="w-full justify-start" onClick={() => { router.navigate({ to: "/admin" }); setOpen(false); }}>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        router.navigate({ to: "/admin" });
+                        setOpen(false);
+                      }}
+                    >
                       <Shield className="mr-2 h-4 w-4" /> Admin
                     </Button>
                   )}
-                  <Button variant="outline" className="w-full justify-start" onClick={() => signOut()}>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => signOut()}
+                  >
                     <LogOut className="mr-2 h-4 w-4" /> Salir
                   </Button>
                 </>
@@ -153,11 +185,20 @@ export function SiteHeader() {
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => { router.navigate({ to: "/login" }); setOpen(false); }}
+                    onClick={() => {
+                      router.navigate({ to: "/login" });
+                      setOpen(false);
+                    }}
                   >
                     Ingresar
                   </Button>
-                  <Button className="w-full" onClick={() => { router.navigate({ to: "/register" }); setOpen(false); }}>
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      router.navigate({ to: "/register" });
+                      setOpen(false);
+                    }}
+                  >
                     Registrarse
                   </Button>
                 </>

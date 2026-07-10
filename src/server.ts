@@ -39,11 +39,13 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
 if (process.env.NODE_ENV !== "test") {
   setTimeout(() => {
-    import("./lib/scheduler").then(({ startDailyScheduler }) => {
-      startDailyScheduler();
-    }).catch((err) => {
-      console.error("[scheduler] No se pudo iniciar:", err);
-    });
+    import("./lib/scheduler")
+      .then(({ startDailyScheduler }) => {
+        startDailyScheduler();
+      })
+      .catch((err) => {
+        console.error("[scheduler] No se pudo iniciar:", err);
+      });
   }, 1000);
 }
 

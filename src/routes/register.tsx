@@ -81,7 +81,7 @@ function RegisterPage() {
           <h1 className="font-display text-3xl text-foreground">Crear cuenta</h1>
           <p className="mt-1 text-sm text-muted-foreground">Bienvenido</p>
 
-          <form onSubmit={onSubmit} className="mt-5 space-y-4">
+          <form onSubmit={onSubmit} className="mt-5 space-y-4" autoComplete="off">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="firstName">Nombre</Label>
@@ -89,6 +89,7 @@ function RegisterPage() {
                   id="firstName"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
+                  autoComplete="given-name"
                   required
                 />
               </div>
@@ -98,6 +99,7 @@ function RegisterPage() {
                   id="lastName"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
+                  autoComplete="family-name"
                   required
                 />
               </div>
@@ -108,6 +110,7 @@ function RegisterPage() {
                 id="middleName"
                 value={middleName}
                 onChange={(e) => setMiddleName(e.target.value)}
+                autoComplete="additional-name"
               />
             </div>
             <div>
@@ -117,6 +120,7 @@ function RegisterPage() {
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -127,6 +131,7 @@ function RegisterPage() {
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  autoComplete="tel"
                   required
                 />
               </div>
@@ -136,6 +141,7 @@ function RegisterPage() {
                   id="documentNumber"
                   value={documentNumber}
                   onChange={(e) => setDocumentNumber(e.target.value)}
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -148,6 +154,7 @@ function RegisterPage() {
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
                 required
               />
               <p className="mt-1 text-xs text-muted-foreground">

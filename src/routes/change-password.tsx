@@ -16,7 +16,7 @@ export const Route = createFileRoute("/change-password")({
 });
 
 function ChangePasswordPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -47,6 +47,7 @@ function ChangePasswordPage() {
         toast.error(error.message || "Error al cambiar la contraseña");
       } else {
         await (authClient.updateUser as any)({ mustChangePassword: false });
+        await refreshUser();
         const role = user?.role;
         if (role === "admin") navigate({ to: "/admin" });
         else if (role === "medico" || role === "recepcionista") navigate({ to: "/staff" });

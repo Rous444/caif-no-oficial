@@ -60,10 +60,16 @@ CI (`.github/workflows/ci.yml`): `bun run lint` → `bunx tsc --noEmit` → `bun
 
 ## Production (Render)
 
-- **Dockerfile**: Multi-stage. Stage 1: Bunny install + build. Stage 2: Node 20 + Chromium (for whatsapp-web.js Puppeteer), runs `start.js`. No Bun in runtime image.
+- **Dockerfile**: Multi-stage. Stage 1: Bun install + build. Stage 2: Node 20 + Chromium (for whatsapp-web.js Puppeteer). Bun kept in runtime image for `bunx drizzle-kit push` + seed in CMD, then `node start.js` for HTTP.
 - **start.js**: Custom Node HTTP server (ESM). Serves `dist/client/` static assets; proxies everything else to `dist/server/server.js` SSR handler. Port from `$PORT` env (default 8080).
-- **render.yaml**: Blueprint — web service (Professional) + PostgreSQL (Starter). Persistent disk at `/app/whatsapp-session`. Env: `BETTER_AUTH_URL`, `DATABASE_URL`, `CHROMIUM_PATH`, `TZ=America/Argentina/Buenos_Aires`.
+- **render.yaml**: Blueprint — web service (Starter) + PostgreSQL (Starter, 256 MB). Env: `BETTER_AUTH_URL`, `DATABASE_URL`, `BETTER_AUTH_SECRET`, `TZ=America/Argentina/Buenos_Aires`, `DEFAULT_DOCTOR_PASSWORD`, `DEFAULT_ADMIN_PASSWORD`.
 - **`.dockerignore`**: Must stay in sync with `.gitignore`. Without it build context balloons and Render builds time out.
+
+### Deployment caution
+
+- **Live on Render**: Web service (Starter plan) + PostgreSQL (256 MB). Treat production as fragile.
+- **DB schema changes**: Always verify with `bun db:push` locally against a full copy before pushing. Avoid destructive migrations — prefer additive changes. The Render PostgreSQL plan has limited storage and no point-in-time recovery.
+- **Deploy window**: Only deploy between 21:00–08:00 ARG (the maintenance/softlock window). Outside hours the system is serving patients — a broken deploy means downtime during active hours.
 
 ## Seed Defaults
 
@@ -84,6 +90,7 @@ CI (`.github/workflows/ci.yml`): `bun run lint` → `bunx tsc --noEmit` → `bun
 - `components.json` has `@react-bits` registry configured.
 - Admin gallery tab: separate component at `src/components/admin/GalleryTab.tsx`.
 - Path alias: `@/*` → `src/*` (tsconfig, vitest, vite config).
+- Test suite is currently empty — no `*.test.ts` files exist. `bun test` passes vacuously. Tests live in `src/test/` (vitest + jsdom + `@testing-library`).
 
 ## Mobile Responsive Conventions
 

@@ -12,7 +12,10 @@ export const uploadMedicalRecord = createServerFn({ method: "POST" })
       fileName: z.string().min(1),
       fileType: z.string().min(1),
       fileData: z.string().min(1),
-      fileSize: z.number().int().max(20 * 1024 * 1024),
+      fileSize: z
+        .number()
+        .int()
+        .max(20 * 1024 * 1024),
     }),
   )
   .handler(async ({ data }) => {

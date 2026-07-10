@@ -134,13 +134,19 @@ export function WhatsAppTab() {
             · El turnero se envía todos los días a las <strong>21:00 ARG</strong>
           </li>
           <li>
-            · La sesión se guarda en <code className="rounded bg-muted px-1.5 py-0.5 text-xs">WHATSAPP_SESSION_PATH</code>{" "}
-            (por defecto <code className="rounded bg-muted px-1.5 py-0.5 text-xs">./whatsapp-session</code>)
+            · La sesión se guarda en{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">WHATSAPP_SESSION_PATH</code>{" "}
+            (por defecto{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">./whatsapp-session</code>)
           </li>
           <li className="mt-3 border-t border-border pt-3">
-            · <strong>Solución de problemas:</strong> si ves <em>"Could not find Chrome"</em>, instalá
-            Chrome o ejecutá <code className="rounded bg-muted px-1.5 py-0.5 text-xs">npx puppeteer browsers install chrome</code>.
-            En Render, definí <code className="rounded bg-muted px-1.5 py-0.5 text-xs">CHROMIUM_PATH</code>.
+            · <strong>Solución de problemas:</strong> si ves <em>"Could not find Chrome"</em>,
+            instalá Chrome o ejecutá{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+              npx puppeteer browsers install chrome
+            </code>
+            . En Render, definí{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">CHROMIUM_PATH</code>.
           </li>
         </ul>
       </div>

@@ -112,10 +112,7 @@ export const updateMyBio = createServerFn({ method: "POST" })
       where: eq(doctors.userId, data.userId),
     });
     if (!doctor) throw new Error("No se encontró perfil de médico");
-    await db
-      .update(doctors)
-      .set({ bio: data.bio })
-      .where(eq(doctors.id, doctor.id));
+    await db.update(doctors).set({ bio: data.bio }).where(eq(doctors.id, doctor.id));
     return { success: true };
   });
 

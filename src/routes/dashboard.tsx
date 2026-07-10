@@ -107,11 +107,7 @@ function Dashboard() {
         <section className="mt-10">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-2xl text-foreground">Historial</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowHistory(!showHistory)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setShowHistory(!showHistory)}>
               {showHistory ? "Ocultar historial" : `Mostrar historial (${history.length})`}
             </Button>
           </div>
@@ -238,7 +234,8 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   const slots = (() => {
     // Return empty early if prerequisites missing or still loading
-    if (!date || !schedules || !dayAppts) return [] as { value: string; label: string; available: boolean }[];
+    if (!date || !schedules || !dayAppts)
+      return [] as { value: string; label: string; available: boolean }[];
 
     // Parse selected date
     const [yr, mo, dy] = date.split("-").map(Number);
@@ -344,7 +341,12 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)} size="lg" className="shadow-elegant" disabled={isSoftlocked()}>
+      <Button
+        onClick={() => setOpen(true)}
+        size="lg"
+        className="shadow-elegant"
+        disabled={isSoftlocked()}
+      >
         <Plus className="mr-2 h-4 w-4" /> Solicitar turno
       </Button>
     );
@@ -355,18 +357,16 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   let availabilityContent: React.JSX.Element;
   if (!doctorId || !date) {
-    availabilityContent = <p className="text-sm text-muted-foreground mt-1">Elegí profesional y fecha</p>;
+    availabilityContent = (
+      <p className="text-sm text-muted-foreground mt-1">Elegí profesional y fecha</p>
+    );
   } else if (isFetchingDayAppts) {
     availabilityContent = (
-      <p className="text-sm text-muted-foreground mt-1">
-        Cargando horarios...
-      </p>
+      <p className="text-sm text-muted-foreground mt-1">Cargando horarios...</p>
     );
   } else if (slots.length === 0) {
     availabilityContent = (
-      <p className="text-sm text-muted-foreground mt-1">
-        Sin horarios disponibles este día
-      </p>
+      <p className="text-sm text-muted-foreground mt-1">Sin horarios disponibles este día</p>
     );
   } else {
     const availableSlots = slots.filter((s) => s.available);
@@ -453,7 +453,9 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
                   {doctors?.map((d) => (
                     <SelectItem key={d.id} value={d.id} className="py-3">
                       <div>
-                        <div>{d.user?.firstName} {d.user?.lastName}</div>
+                        <div>
+                          {d.user?.firstName} {d.user?.lastName}
+                        </div>
                         {d.bio && (
                           <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                             {d.bio}

@@ -95,17 +95,12 @@ export const bookAppointment = createServerFn({ method: "POST" })
     const endDate = new Date(scheduledDate.getTime() + data.durationMinutes * 60000);
 
     const existing = await db.query.appointments.findMany({
-      where: and(
-        eq(appointments.doctorId, data.doctorId),
-        ne(appointments.status, "cancelado"),
-      ),
+      where: and(eq(appointments.doctorId, data.doctorId), ne(appointments.status, "cancelado")),
     });
 
     for (const appt of existing) {
       const existingStart = new Date(appt.scheduledAt);
-      const existingEnd = new Date(
-        existingStart.getTime() + (appt.durationMinutes ?? 30) * 60000,
-      );
+      const existingEnd = new Date(existingStart.getTime() + (appt.durationMinutes ?? 30) * 60000);
       if (scheduledDate < existingEnd && endDate > existingStart) {
         throw new Error("El horario seleccionado ya está reservado para este profesional");
       }

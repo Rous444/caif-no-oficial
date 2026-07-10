@@ -98,19 +98,24 @@ function AdminPanel() {
         <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList>
             <TabsTrigger value="usuarios" className="gap-1 sm:gap-2">
-              <Users className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Usuarios</span>
+              <Users className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Usuarios</span>
             </TabsTrigger>
             <TabsTrigger value="especialidades" className="gap-1 sm:gap-2">
-              <Stethoscope className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Especialidades</span>
+              <Stethoscope className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Especialidades</span>
             </TabsTrigger>
             <TabsTrigger value="medicos" className="gap-1 sm:gap-2">
-              <UserCog className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Médicos</span>
+              <UserCog className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Médicos</span>
             </TabsTrigger>
             <TabsTrigger value="galeria" className="gap-1 sm:gap-2">
-              <ImageIcon className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Galería</span>
+              <ImageIcon className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Galería</span>
             </TabsTrigger>
             <TabsTrigger value="whatsapp" className="gap-1 sm:gap-2">
-              <Smartphone className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">WhatsApp</span>
+              <Smartphone className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">WhatsApp</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -293,7 +298,9 @@ function UsersTab() {
           <div key={u.id} className="rounded-xl border border-border bg-background p-4">
             <div className="flex items-start justify-between mb-2">
               <div className="min-w-0">
-                <div className="font-medium truncate">{u.firstName} {u.lastName}</div>
+                <div className="font-medium truncate">
+                  {u.firstName} {u.lastName}
+                </div>
                 <div className="text-xs text-muted-foreground truncate">{u.email}</div>
               </div>
               <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs capitalize text-primary">
@@ -313,7 +320,11 @@ function UsersTab() {
                   onClick={() => toggleActive.mutate({ userId: u.id, isActive: !u.isActive })}
                   className="min-h-[44px] min-w-[44px]"
                 >
-                  {u.isActive ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4" />}
+                  {u.isActive ? (
+                    <ToggleLeft className="h-4 w-4" />
+                  ) : (
+                    <ToggleRight className="h-4 w-4" />
+                  )}
                 </Button>
                 <Button
                   size="sm"
@@ -373,7 +384,8 @@ function UsersTab() {
             </Button>
             <Button
               onClick={() => {
-                if (resetPwUserId) resetPw.mutate({ userId: resetPwUserId, newPassword: resetPwValue });
+                if (resetPwUserId)
+                  resetPw.mutate({ userId: resetPwUserId, newPassword: resetPwValue });
               }}
               disabled={resetPw.isPending || resetPwValue.length < 6}
             >
@@ -815,7 +827,12 @@ function DoctorsTab() {
                     >
                       Editar
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => remove.mutate(d.id)} className="min-h-[44px] min-w-[44px]">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => remove.mutate(d.id)}
+                      className="min-h-[44px] min-w-[44px]"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -828,16 +845,21 @@ function DoctorsTab() {
 
       <div className="md:hidden space-y-3">
         {doctors?.map((d) => {
-          const specialtiesList = d.specialties
-            ?.map((s: any) => s.specialty?.name)
-            .filter(Boolean)
-            .join(", ") || d.specialty?.name || "—";
+          const specialtiesList =
+            d.specialties
+              ?.map((s: any) => s.specialty?.name)
+              .filter(Boolean)
+              .join(", ") ||
+            d.specialty?.name ||
+            "—";
           const ins = d.insuranceCompanies;
           return (
             <div key={d.id} className="rounded-xl border border-border bg-background p-4">
               <div className="flex items-start justify-between mb-2">
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{d.user?.firstName} {d.user?.lastName}</div>
+                  <div className="font-medium truncate">
+                    {d.user?.firstName} {d.user?.lastName}
+                  </div>
                   <div className="text-xs text-muted-foreground">{specialtiesList}</div>
                 </div>
                 <span
@@ -851,7 +873,12 @@ function DoctorsTab() {
                 {ins && ins.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {ins.map((i: string) => (
-                      <span key={i} className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">{i}</span>
+                      <span
+                        key={i}
+                        className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary"
+                      >
+                        {i}
+                      </span>
                     ))}
                   </div>
                 )}
@@ -860,12 +887,20 @@ function DoctorsTab() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => { setEditing(d); setEditOpen(true); }}
+                  onClick={() => {
+                    setEditing(d);
+                    setEditOpen(true);
+                  }}
                   className="flex-1"
                 >
                   Editar
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => remove.mutate(d.id)} className="min-h-[44px] min-w-[44px]">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => remove.mutate(d.id)}
+                  className="min-h-[44px] min-w-[44px]"
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

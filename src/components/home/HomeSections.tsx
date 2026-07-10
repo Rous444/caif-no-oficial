@@ -56,7 +56,8 @@ export function Hero({ user, roles }: { user: any | null; roles: AppRole[] }) {
             <div className="flex items-center gap-2 text-sm">
               <User className="h-4 w-4 text-primary" />
               <span className="text-muted-foreground">
-                Conectado como <span className="font-medium text-foreground capitalize">{role}</span>
+                Conectado como{" "}
+                <span className="font-medium text-foreground capitalize">{role}</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -226,7 +227,16 @@ export function SpecialtiesGrid() {
       <div className="grid auto-rows-auto grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4">
         {specialties?.map((s, i) => {
           const Icon = iconMap[s.icon ?? "Stethoscope"] ?? Stethoscope;
-          const sizes = ["sm:row-span-2", "", "", "sm:col-span-2", "", "sm:row-span-2", "", "sm:col-span-2"];
+          const sizes = [
+            "sm:row-span-2",
+            "",
+            "",
+            "sm:col-span-2",
+            "",
+            "sm:row-span-2",
+            "",
+            "sm:col-span-2",
+          ];
           return (
             <FadeContent key={s.id} threshold={0.1} duration={600} delay={i * 80}>
               <div
@@ -273,11 +283,12 @@ export function GallerySection() {
   const visibleFallback = fallback.filter(
     (f) => !dbUrls.has(f.url) && !hiddenDefaults.includes(f.id),
   );
-  const images = data && data.length > 0
-    ? [...data, ...visibleFallback]
-    : visibleFallback.length > 0
-      ? visibleFallback
-      : fallback;
+  const images =
+    data && data.length > 0
+      ? [...data, ...visibleFallback]
+      : visibleFallback.length > 0
+        ? visibleFallback
+        : fallback;
 
   return (
     <section id="galeria" className="bg-surface py-20">
@@ -299,7 +310,7 @@ export function GallerySection() {
                 className={`group relative overflow-hidden rounded-2xl ${i === 0 ? "sm:col-span-2 sm:row-span-2 aspect-square" : "aspect-square"}`}
               >
                 <img
-                  src={img.url}
+                  src={img.fileData || img.url}
                   alt={img.title ?? "Instalación del consultorio"}
                   loading="lazy"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"

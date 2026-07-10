@@ -154,10 +154,13 @@ export const appointments = pgTable("appointments", {
 
 export const galleryImages = pgTable("gallery_images", {
   id: uuid("id").primaryKey().defaultRandom(),
-  url: text("url").notNull(),
+  url: text("url"),
   title: text("title"),
   sortOrder: integer("sort_order").default(0),
   isActive: boolean("is_active").default(true),
+  imageType: text("image_type").default("url"),
+  fileData: text("file_data"),
+  fileSize: integer("file_size"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

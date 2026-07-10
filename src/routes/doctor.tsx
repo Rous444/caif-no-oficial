@@ -137,19 +137,24 @@ function DoctorPanel() {
         <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList>
             <TabsTrigger value="agenda" className="gap-1 sm:gap-2">
-              <CalendarDays className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Agenda</span>
+              <CalendarDays className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Agenda</span>
             </TabsTrigger>
             <TabsTrigger value="horarios" className="gap-1 sm:gap-2">
-              <Settings2 className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Horarios</span>
+              <Settings2 className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Horarios</span>
             </TabsTrigger>
             <TabsTrigger value="obras-sociales" className="gap-1 sm:gap-2">
-              <Building2 className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Obras Sociales</span>
+              <Building2 className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Obras Sociales</span>
             </TabsTrigger>
             <TabsTrigger value="fichas" className="gap-1 sm:gap-2">
-              <FileText className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Fichas Médicas</span>
+              <FileText className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Fichas Médicas</span>
             </TabsTrigger>
             <TabsTrigger value="descripcion" className="gap-1 sm:gap-2">
-              <User className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Descripción</span>
+              <User className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Descripción</span>
             </TabsTrigger>
             <TabsTrigger value="perfil" className="gap-1 sm:gap-2">
               <User className="h-4 w-4 shrink-0" /> <span className="hidden sm:inline">Perfil</span>
@@ -295,17 +300,13 @@ function DayView({
 
   const filtered = patientSearch.trim()
     ? appts.filter((a) => {
-        const name = a.patient
-          ? `${a.patient.firstName} ${a.patient.lastName}`.toLowerCase()
-          : "";
+        const name = a.patient ? `${a.patient.firstName} ${a.patient.lastName}`.toLowerCase() : "";
         return name.includes(patientSearch.toLowerCase());
       })
     : appts;
 
   const patientAppointments = historyPatient
-    ? appts.filter(
-        (a) => a.patient?.id === historyPatient.id,
-      )
+    ? appts.filter((a) => a.patient?.id === historyPatient.id)
     : [];
 
   if (appts.length === 0) {
@@ -344,7 +345,12 @@ function DayView({
         </div>
       )}
 
-      <Dialog open={!!historyPatient} onOpenChange={(v) => { if (!v) setHistoryPatient(null); }}>
+      <Dialog
+        open={!!historyPatient}
+        onOpenChange={(v) => {
+          if (!v) setHistoryPatient(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -363,10 +369,13 @@ function DayView({
                   <div>
                     <div className="font-medium">{fmtDate(new Date(a.scheduledAt))}</div>
                     <div className="text-xs text-muted-foreground">
-                      {fmtTime(new Date(a.scheduledAt))} · {a.durationMinutes ?? 30} min · {a.specialty?.name}
+                      {fmtTime(new Date(a.scheduledAt))} · {a.durationMinutes ?? 30} min ·{" "}
+                      {a.specialty?.name}
                     </div>
                   </div>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusBg(a.status)}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusBg(a.status)}`}
+                  >
                     {a.status}
                   </span>
                 </div>
@@ -508,7 +517,12 @@ function ApptCard({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {appt.patient && onShowHistory && (
-          <Button size="sm" variant="outline" onClick={() => onShowHistory(appt.patient)} className="min-h-[44px]">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onShowHistory(appt.patient)}
+            className="min-h-[44px]"
+          >
             <History className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Historial</span>
           </Button>
         )}
@@ -520,18 +534,34 @@ function ApptCard({
         {appt.status !== "confirmado" &&
           appt.status !== "cancelado" &&
           appt.status !== "completado" && (
-            <Button size="sm" onClick={() => onUpdateStatus(appt.id, "confirmado")} className="min-h-[44px]">
+            <Button
+              size="sm"
+              onClick={() => onUpdateStatus(appt.id, "confirmado")}
+              className="min-h-[44px]"
+            >
               <Check className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Confirmar</span>
             </Button>
           )}
         {appt.status !== "completado" && appt.status !== "cancelado" && (
-          <Button size="sm" variant="outline" onClick={() => setReschedOpen(true)} className="min-h-[44px]">
-            <span className="hidden sm:inline">Reprogramar</span><span className="sm:hidden">Reprog.</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setReschedOpen(true)}
+            className="min-h-[44px]"
+          >
+            <span className="hidden sm:inline">Reprogramar</span>
+            <span className="sm:hidden">Reprog.</span>
           </Button>
         )}
         {appt.status === "confirmado" && (
-          <Button size="sm" variant="outline" onClick={() => onUpdateStatus(appt.id, "completado")} className="min-h-[44px]">
-            <span className="hidden sm:inline">Completado</span><span className="sm:hidden">Compl.</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onUpdateStatus(appt.id, "completado")}
+            className="min-h-[44px]"
+          >
+            <span className="hidden sm:inline">Completado</span>
+            <span className="sm:hidden">Compl.</span>
           </Button>
         )}
         {appt.status !== "cancelado" && appt.status !== "completado" && (
@@ -1073,13 +1103,24 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
     return "FILE";
   };
 
-  const openUpload = (patient?: { id: string; firstName: string; lastName: string; email: string }) => {
+  const openUpload = (patient?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }) => {
     setUploadForPatient(patient ?? null);
     setFile(null);
     setUploadOpen(true);
   };
 
-  function PatientRecordCard({ patientId, versions }: { patientId: string; versions: (PatientRecord & { recordVersion: number })[] }) {
+  function PatientRecordCard({
+    patientId,
+    versions,
+  }: {
+    patientId: string;
+    versions: (PatientRecord & { recordVersion: number })[];
+  }) {
     const [showHistory, setShowHistory] = useState(false);
     const latest = versions[0];
     const prevVersions = versions.slice(1);
@@ -1090,22 +1131,31 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-4 min-w-0">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-primary text-primary-foreground text-sm font-bold">
-              {p?.firstName?.[0]}{p?.lastName?.[0]}
+              {p?.firstName?.[0]}
+              {p?.lastName?.[0]}
             </div>
             <div className="min-w-0">
-              <div className="font-medium truncate">{p?.firstName} {p?.lastName}</div>
+              <div className="font-medium truncate">
+                {p?.firstName} {p?.lastName}
+              </div>
               <div className="text-xs text-muted-foreground">
                 {p?.documentNumber ?? "—"} · {p?.email}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Button size="sm" variant="outline" onClick={() => openUpload({
-              id: patientId,
-              firstName: p?.firstName ?? "",
-              lastName: p?.lastName ?? "",
-              email: p?.email ?? "",
-            })}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                openUpload({
+                  id: patientId,
+                  firstName: p?.firstName ?? "",
+                  lastName: p?.lastName ?? "",
+                  email: p?.email ?? "",
+                })
+              }
+            >
               <Upload className="mr-1 h-4 w-4" /> Nueva versión
             </Button>
             <Button

@@ -57,19 +57,44 @@ export function ProfileEditor() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label>Nombre</Label>
-          <Input value={firstName} onChange={(e) => { setFirstName(e.target.value); markChanged(); }} />
+          <Input
+            value={firstName}
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              markChanged();
+            }}
+          />
         </div>
         <div>
           <Label>Apellido</Label>
-          <Input value={lastName} onChange={(e) => { setLastName(e.target.value); markChanged(); }} />
+          <Input
+            value={lastName}
+            onChange={(e) => {
+              setLastName(e.target.value);
+              markChanged();
+            }}
+          />
         </div>
         <div>
           <Label>Teléfono</Label>
-          <Input value={phone} onChange={(e) => { setPhone(e.target.value); markChanged(); }} />
+          <Input
+            value={phone}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              markChanged();
+            }}
+          />
         </div>
         <div>
           <Label>Email</Label>
-          <Input type="email" value={email} onChange={(e) => { setEmail(e.target.value); markChanged(); }} />
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              markChanged();
+            }}
+          />
         </div>
       </div>
       <div className="mt-6 flex justify-end">

@@ -21,19 +21,39 @@ export const getAllGalleryImages = createServerFn({ method: "GET" }).handler(asy
 export const createGalleryImage = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      url: z.string().url(),
+      url: z.string().url().optional(),
       title: z.string().max(200).optional(),
       sortOrder: z.number().int().min(0).max(999).optional(),
+      imageType: z.enum(["url", "upload"]).optional(),
+      fileData: z.string().optional(),
+      fileSize: z.number().int().optional(),
     }),
   )
   .handler(async ({ data }) => {
+    const imageType = data.imageType ?? "url";
+    if (imageType === "upload" && data.fileData) {
+      const [newImage] = await db
+        .insert(galleryImages)
+        .values({
+          url: null,
+          title: data.title || null,
+          sortOrder: data.sortOrder ?? 0,
+          isActive: true,
+          imageType: "upload",
+          fileData: data.fileData,
+          fileSize: data.fileSize ?? null,
+        })
+        .returning();
+      return newImage;
+    }
     const [newImage] = await db
       .insert(galleryImages)
       .values({
-        url: data.url,
+        url: data.url!,
         title: data.title || null,
         sortOrder: data.sortOrder ?? 0,
         isActive: true,
+        imageType: "url",
       })
       .returning();
     return newImage;
@@ -43,32 +63,62 @@ export const updateGalleryImage = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       id: z.string().uuid().optional(),
-      url: z.string().url(),
+      url: z.string().url().optional(),
       title: z.string().max(200).optional(),
       sortOrder: z.number().int().min(0).max(999),
-      useNewId: z.boolean().optional(),
+      imageType: z.enum(["url", "upload"]).optional(),
+      fileData: z.string().optional(),
+      fileSize: z.number().int().optional(),
     }),
   )
   .handler(async ({ data }) => {
     if (data.id) {
+      const updateFields: Record<string, unknown> = {
+        title: data.title || null,
+        sortOrder: data.sortOrder,
+      };
+      if (data.imageType === "upload" && data.fileData) {
+        updateFields.url = null;
+        updateFields.imageType = "upload";
+        updateFields.fileData = data.fileData;
+        updateFields.fileSize = data.fileSize ?? null;
+      } else if (data.imageType === "url" && data.url) {
+        updateFields.url = data.url;
+        updateFields.imageType = "url";
+        updateFields.fileData = null;
+        updateFields.fileSize = null;
+      }
       const [updated] = await db
         .update(galleryImages)
-        .set({
-          url: data.url,
-          title: data.title || null,
-          sortOrder: data.sortOrder,
-        })
+        .set(updateFields)
         .where(eq(galleryImages.id, data.id))
         .returning();
       return updated;
     } else {
+      const imageType = data.imageType ?? "url";
+      if (imageType === "upload" && data.fileData) {
+        const [newImage] = await db
+          .insert(galleryImages)
+          .values({
+            url: null,
+            title: data.title || null,
+            sortOrder: data.sortOrder,
+            isActive: true,
+            imageType: "upload",
+            fileData: data.fileData,
+            fileSize: data.fileSize ?? null,
+          })
+          .returning();
+        return newImage;
+      }
       const [newImage] = await db
         .insert(galleryImages)
         .values({
-          url: data.url,
+          url: data.url!,
           title: data.title || null,
           sortOrder: data.sortOrder,
           isActive: true,
+          imageType: "url",
         })
         .returning();
       return newImage;
