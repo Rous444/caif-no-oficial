@@ -693,13 +693,19 @@ function SpecialtyDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Stethoscope">Estetoscopio</SelectItem>
-                  <SelectItem value="Heart">Corazón</SelectItem>
+                  <SelectItem value="HeartPulse">Corazón</SelectItem>
                   <SelectItem value="Baby">Bebé</SelectItem>
                   <SelectItem value="Sparkles">Destellos</SelectItem>
                   <SelectItem value="Flower2">Flor</SelectItem>
                   <SelectItem value="Bone">Hueso</SelectItem>
+                  <SelectItem value="Armchair">Sillon</SelectItem>
                   <SelectItem value="Brain">Cerebro</SelectItem>
                   <SelectItem value="Eye">Ojo</SelectItem>
+                  <SelectItem value="Ear">Oreja</SelectItem>
+                  <SelectItem value="Broccoli">Broccoli</SelectItem>
+                  <SelectItem value="Shrimp">Estomago</SelectItem>
+                  <SelectItem value="Music">Música</SelectItem>
+                  
                 </SelectContent>
               </Select>
             </div>

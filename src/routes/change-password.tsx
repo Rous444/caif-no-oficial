@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
 import { validatePasswordStrength } from "@/lib/password";
 import { toast } from "sonner";
-import { Activity, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import FadeContent from "@/components/FadeContent";
 
 export const Route = createFileRoute("/change-password")({

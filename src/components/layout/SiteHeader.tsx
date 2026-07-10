@@ -1,6 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import {
-  Activity,
   Menu,
   X,
   ChevronDown,
@@ -11,6 +10,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useState } from "react";
+import favicon from "../../assets/Favicon.png";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,9 +30,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground">
-            <Activity className="h-5 w-5" />
-          </span>
+          <img src={favicon} alt="CAIF" className="h-8 w-8" />
           <div className="leading-tight">
             <div className="font-display text-lg text-foreground">CAIF</div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">

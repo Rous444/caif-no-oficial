@@ -7,8 +7,8 @@ import { useAuth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
 import { resolveLoginIdentifier } from "@/lib/api/profile.functions";
 import { toast } from "sonner";
-import { Activity } from "lucide-react";
 import FadeContent from "@/components/FadeContent";
+import favicon from "../assets/Favicon.png";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Iniciar sesión · CAIF" }] }),
@@ -61,9 +61,7 @@ function LoginPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="hidden bg-gradient-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10">
-            <Activity className="h-5 w-5" />
-          </span>
+          <img src={favicon} alt="CAIF" className="h-8 w-8" />
           <span className="font-display text-xl">CAIF</span>
         </Link>
         <div>

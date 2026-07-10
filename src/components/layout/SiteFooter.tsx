@@ -1,4 +1,5 @@
-import { Activity, Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin, Phone } from "lucide-react";
+import favicon from "../../assets/Favicon.png";
 
 export function SiteFooter() {
   return (
@@ -6,9 +7,7 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-teal text-teal-foreground">
-              <Activity className="h-5 w-5" />
-            </span>
+            <img src={favicon} alt="CAIF" className="h-8 w-8" />
             <div className="font-display text-xl">CAIF</div>
           </div>
           <p className="mt-3 text-sm text-primary-foreground/70">
