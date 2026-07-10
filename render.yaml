@@ -5,7 +5,7 @@ services:
     repo: https://github.com/Rous444/caif-no-oficial
     plan: free
     region: ohio
-    preDeployCommand: "bunx drizzle-kit push"
+    preDeployCommand: "bunx drizzle-kit push && bun run src/db/seed.ts"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -14,7 +14,7 @@ services:
       - key: BETTER_AUTH_SECRET
         generateValue: true
       - key: BETTER_AUTH_URL
-        value: https://caif.onrender.com
+        value: https://caif-wcb8.onrender.com
       - key: TZ
         value: America/Argentina/Buenos_Aires
       - key: DEFAULT_DOCTOR_PASSWORD

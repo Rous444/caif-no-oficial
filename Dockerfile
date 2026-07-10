@@ -43,6 +43,7 @@ COPY --from=build /app/package.json /app/bun.lock ./
 RUN bun install --production --frozen-lockfile
 
 COPY --from=build /app/start.js ./
+COPY --from=build /app/src ./src
 
 ENV NODE_ENV=production \
     PUPPETEER_SKIP_DOWNLOAD=true \
