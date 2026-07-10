@@ -45,6 +45,7 @@ RUN bun install --production --frozen-lockfile
 COPY --from=build /app/start.js ./
 COPY --from=build /app/src ./src
 COPY --from=build /app/drizzle.config.ts ./
+COPY --from=build /app/tsconfig.json ./
 
 ENV NODE_ENV=production \
     PUPPETEER_SKIP_DOWNLOAD=true \
@@ -53,4 +54,4 @@ ENV NODE_ENV=production \
 
 EXPOSE 8080
 
-CMD ["node", "start.js"]
+CMD sh -c "bunx drizzle-kit push && bun run src/db/seed.ts && exec node start.js"
