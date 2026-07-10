@@ -5,6 +5,7 @@ services:
     repo: https://github.com/Rous444/caif-no-oficial
     plan: free
     region: ohio
+    preDeployCommand: "bunx drizzle-kit push"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
