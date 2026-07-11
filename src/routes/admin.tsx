@@ -772,6 +772,7 @@ function DoctorsTab() {
               <th className="p-4 font-medium">Especialidades</th>
               <th className="p-4 font-medium">Matrícula</th>
               <th className="p-4 font-medium">Obras Sociales</th>
+              <th className="p-4 font-medium">WhatsApp</th>
               <th className="p-4 font-medium">Estado</th>
               <th className="p-4 font-medium">Acciones</th>
             </tr>
@@ -812,6 +813,11 @@ function DoctorsTab() {
                       "—"
                     );
                   })()}
+                </td>
+                <td className="p-4">
+                  <Smartphone
+                    className={`h-4 w-4 ${d.whatsappNotifications ? "text-teal" : "text-muted-foreground/40"}`}
+                  />
                 </td>
                 <td className="p-4">
                   <span
@@ -876,6 +882,11 @@ function DoctorsTab() {
               </div>
               <div className="mb-3 text-xs text-muted-foreground">
                 <span>Matrícula: {d.licenseNumber || "—"}</span>
+                {d.whatsappNotifications && (
+                  <span className="ml-3 inline-flex items-center gap-1 text-teal">
+                    <Smartphone className="h-3 w-3" /> WhatsApp
+                  </span>
+                )}
                 {ins && ins.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {ins.map((i: string) => (

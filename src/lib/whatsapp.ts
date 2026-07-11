@@ -23,6 +23,10 @@ export function getWhatsAppStatus() {
   };
 }
 
+export function isWhatsAppConnected(): boolean {
+  return isConnected;
+}
+
 export async function startWhatsAppClient(): Promise<void> {
   if (client || isStarting) return;
   isStarting = true;
@@ -33,7 +37,25 @@ export async function startWhatsAppClient(): Promise<void> {
     const { Client, LocalAuth } = wa;
 
     const puppeteerOpts: Record<string, unknown> = {
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-zygote",
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--disable-sync",
+        "--disable-translate",
+        "--disable-default-apps",
+        "--mute-audio",
+        "--no-first-run",
+        "--hide-scrollbars",
+        "--disable-notifications",
+        "--disable-infobars",
+        "--js-flags=--max-old-space-size=256",
+      ],
     };
     if (process.env.CHROMIUM_PATH) {
       puppeteerOpts.executablePath = process.env.CHROMIUM_PATH;
@@ -68,6 +90,46 @@ export async function startWhatsAppClient(): Promise<void> {
   } finally {
     isStarting = false;
   }
+}
+
+export async function destroyWhatsAppClient(): Promise<void> {
+  if (!client) return;
+
+  try {
+    // Remove all event listeners to prevent memory leaks
+    client.removeAllListeners?.();
+    await client.destroy();
+  } catch (err) {
+    console.error("WhatsApp destroy error (non-fatal):", err);
+  } finally {
+    client = null;
+    qrCodeString = null;
+    isConnected = false;
+    isStarting = false;
+    startError = null;
+
+    // Force garbage collection hint (V8 will collect on next cycle)
+    if (globalThis.gc) {
+      try {
+        globalThis.gc();
+      } catch {
+        // gc() not available (no --expose-gc flag)
+      }
+    }
+
+    console.log("WhatsApp client destroyed — memory released");
+  }
+}
+
+export async function sendTextMessage(
+  toPhone: string,
+  message: string,
+): Promise<void> {
+  if (!client || !isConnected) {
+    throw new Error("WhatsApp no está conectado");
+  }
+  const chatId = toPhone.includes("@c.us") ? toPhone : `${toPhone}@c.us`;
+  await client.sendMessage(chatId, message);
 }
 
 export async function sendTurneroPDF(

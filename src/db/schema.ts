@@ -118,6 +118,7 @@ export const doctors = pgTable("doctors", {
   slotMinutes: integer("slot_minutes").default(30),
   insuranceCompanies: text("insurance_companies").array(),
   isActive: boolean("is_active").default(true),
+  whatsappNotifications: boolean("whatsapp_notifications").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -1,7 +1,7 @@
 import PDFDocument from "pdfkit";
 import { db } from "@/db";
 import { appointments, doctors, user, specialties } from "@/db/schema";
-import { eq, and, gte, lt } from "drizzle-orm";
+import { eq, and, gte, lt, inArray } from "drizzle-orm";
 
 export type TurneroRow = {
   hora: string;
@@ -52,6 +52,7 @@ export async function getTomorrowAppointments(): Promise<TurneroRow[]> {
       patientLastName: user.lastName,
       doctorName: user.name,
       specialtyName: specialties.name,
+      doctorId: appointments.doctorId,
     })
     .from(appointments)
     .innerJoin(doctors, eq(appointments.doctorId, doctors.id))
@@ -76,6 +77,91 @@ export async function getTomorrowAppointments(): Promise<TurneroRow[]> {
     medico: r.doctorName ?? "",
     especialidad: r.specialtyName,
   }));
+}
+
+export type DoctorAppointmentGroup = {
+  doctorId: string;
+  doctorName: string;
+  phone: string;
+  appointments: { hora: string; paciente: string }[];
+};
+
+export async function getTomorrowAppointmentsByDoctor(): Promise<DoctorAppointmentGroup[]> {
+  const tomorrow = getArgentinaTomorrow();
+  const startOfDay = new Date(tomorrow);
+  const endOfDay = new Date(tomorrow);
+  endOfDay.setDate(endOfDay.getDate() + 1);
+
+  // Get all pending appointments for tomorrow
+  const rows = await db
+    .select({
+      scheduledAt: appointments.scheduledAt,
+      doctorId: appointments.doctorId,
+      patientFirstName: user.firstName,
+      patientLastName: user.lastName,
+    })
+    .from(appointments)
+    .innerJoin(doctors, eq(appointments.doctorId, doctors.id))
+    .innerJoin(user, eq(appointments.patientId, user.id))
+    .where(
+      and(
+        gte(appointments.scheduledAt, startOfDay),
+        lt(appointments.scheduledAt, endOfDay),
+        eq(appointments.status, "pendiente"),
+      ),
+    )
+    .orderBy(appointments.scheduledAt);
+
+  // Collect unique doctor IDs from appointments
+  const doctorIds = [...new Set(rows.map((r) => r.doctorId))];
+
+  if (doctorIds.length === 0) return [];
+
+  // Get doctors with whatsappNotifications enabled + their phone
+  const doctorsWithOptIn = await db
+    .select({
+      id: doctors.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+      whatsappNotifications: doctors.whatsappNotifications,
+    })
+    .from(doctors)
+    .innerJoin(user, eq(doctors.userId, user.id))
+    .where(
+      and(
+        inArray(doctors.id, doctorIds),
+        eq(doctors.whatsappNotifications, true),
+        eq(doctors.isActive, true),
+      ),
+    );
+
+  // Group appointments by doctor
+  const result: DoctorAppointmentGroup[] = [];
+
+  for (const doc of doctorsWithOptIn) {
+    const appts = rows
+      .filter((r) => r.doctorId === doc.id)
+      .map((r) => ({
+        hora: r.scheduledAt.toLocaleTimeString("es-AR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "America/Argentina/Buenos_Aires",
+        }),
+        paciente: `${r.patientFirstName} ${r.patientLastName}`,
+      }));
+
+    const doctorName = `${doc.firstName} ${doc.lastName}`;
+
+    result.push({
+      doctorId: doc.id,
+      doctorName,
+      phone: doc.phone,
+      appointments: appts,
+    });
+  }
+
+  return result;
 }
 
 export async function generateTurneroPDF(rows: TurneroRow[]): Promise<Buffer> {

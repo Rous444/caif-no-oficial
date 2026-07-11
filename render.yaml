@@ -3,8 +3,12 @@ services:
     name: caif
     runtime: docker
     repo: https://github.com/Rous444/caif-no-oficial
-    plan: free
+    plan: starter
     region: ohio
+    disk:
+      name: whatsapp-session
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -20,6 +24,8 @@ services:
         value: MediCare2026!
       - key: DEFAULT_ADMIN_PASSWORD
         value: AdminMediCare2026!
+      - key: WHATSAPP_SESSION_PATH
+        value: /var/data
 
 databases:
   - name: caif-db

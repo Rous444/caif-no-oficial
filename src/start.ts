@@ -26,8 +26,14 @@ const authApiMiddleware = createMiddleware().server(async ({ request, next }) =>
     const { getWhatsAppStatus } = await import("./lib/whatsapp");
     return Response.json(getWhatsAppStatus());
   }
-  if (url.pathname === "/api/whatsapp/restart") {
+  if (url.pathname === "/api/whatsapp/init") {
     const { startWhatsAppClient } = await import("./lib/whatsapp");
+    startWhatsAppClient().catch(() => {});
+    return Response.json({ ok: true });
+  }
+  if (url.pathname === "/api/whatsapp/restart") {
+    const { startWhatsAppClient, destroyWhatsAppClient } = await import("./lib/whatsapp");
+    await destroyWhatsAppClient();
     startWhatsAppClient().catch(() => {});
     return Response.json({ ok: true });
   }
@@ -40,6 +46,26 @@ const authApiMiddleware = createMiddleware().server(async ({ request, next }) =>
     const QRCode = await import("qrcode");
     const dataUrl = await QRCode.toDataURL(status.qrCode, { width: 300, margin: 2 });
     return Response.json({ qrDataUrl: dataUrl });
+  }
+  if (url.pathname === "/api/whatsapp/send-test" && request.method === "POST") {
+    const body = await request.json();
+    const { phone, message } = body as { phone?: string; message?: string };
+    if (!phone || !message) {
+      return Response.json({ error: "Faltan parámetros: phone y message" }, { status: 400 });
+    }
+    const { sendTextMessage, isWhatsAppConnected } = await import("./lib/whatsapp");
+    if (!isWhatsAppConnected()) {
+      return Response.json({ error: "WhatsApp no está conectado" }, { status: 400 });
+    }
+    try {
+      await sendTextMessage(phone, message);
+      return Response.json({ success: true });
+    } catch (err) {
+      return Response.json(
+        { error: err instanceof Error ? err.message : "Error al enviar" },
+        { status: 500 },
+      );
+    }
   }
   return await next();
 });

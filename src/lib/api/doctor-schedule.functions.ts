@@ -98,11 +98,21 @@ export const getDoctorSchedule = createServerFn({ method: "POST" })
 export const getMyDoctorProfile = createServerFn({ method: "POST" })
   .inputValidator(z.object({ userId: z.string() }))
   .handler(async ({ data }) => {
-    const doctor = await db.query.doctors.findFirst({
+    let doctor = await db.query.doctors.findFirst({
       where: eq(doctors.userId, data.userId),
       with: { specialties: { with: { specialty: true } }, user: true },
     });
-    return doctor;
+    if (!doctor) {
+      const [created] = await db
+        .insert(doctors)
+        .values({ userId: data.userId })
+        .returning();
+      doctor = await db.query.doctors.findFirst({
+        where: eq(doctors.id, created.id),
+        with: { specialties: { with: { specialty: true } }, user: true },
+      });
+    }
+    return doctor!;
   });
 
 export const updateMyBio = createServerFn({ method: "POST" })
@@ -123,4 +133,29 @@ export const getDoctorIdByUserId = createServerFn({ method: "POST" })
       where: eq(doctors.userId, data.userId),
     });
     return doctor?.id ?? null;
+  });
+
+export const updateMyWhatsappPreference = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      userId: z.string(),
+      enabled: z.boolean(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const existing = await db.query.doctors.findFirst({
+      where: eq(doctors.userId, data.userId),
+    });
+    if (!existing) {
+      await db.insert(doctors).values({
+        userId: data.userId,
+        whatsappNotifications: data.enabled,
+      });
+    } else {
+      await db
+        .update(doctors)
+        .set({ whatsappNotifications: data.enabled })
+        .where(eq(doctors.id, existing.id));
+    }
+    return { success: true };
   });

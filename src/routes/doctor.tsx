@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -19,6 +19,7 @@ import {
   Trash2,
   Search,
   History,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,13 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -39,6 +47,8 @@ import {
   getDoctorAppointments,
   updateAppointmentStatus,
   rescheduleAppointment,
+  bookAppointment,
+  getDayAppointments,
 } from "@/lib/api/appointments.functions";
 import {
   getMySchedule,
@@ -47,8 +57,12 @@ import {
   getMyDoctorProfile,
   updateMyInsurance,
   updateMyBio,
+  updateMyWhatsappPreference,
 } from "@/lib/api/doctor-schedule.functions";
+import { searchPatients } from "@/lib/api/admin-users.functions";
+import { getAllSpecialties } from "@/lib/api/specialties.functions";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { Switch } from "@/components/ui/switch";
 import {
   uploadMedicalRecord,
   getMyPatientRecords,
@@ -98,6 +112,59 @@ function startOfWeek(d: Date) {
 const fmtDate = (d: Date) =>
   d.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
 const fmtTime = (d: Date) => d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+function DoctorWhatsAppToggle({ userId }: { userId: string }) {
+  const { data: doctor, isLoading } = useQuery({
+    queryKey: ["my-doctor-profile", userId],
+    queryFn: () => getMyDoctorProfile({ data: { userId } }),
+  });
+
+  const queryClient = useQueryClient();
+
+  const toggleWhatsApp = useMutation({
+    mutationFn: (enabled: boolean) =>
+      updateMyWhatsappPreference({ data: { userId, enabled } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-doctor-profile", userId] });
+      toast.success(doctor?.whatsappNotifications
+        ? "Notificaciones de WhatsApp desactivadas"
+        : "Notificaciones de WhatsApp activadas");
+    },
+    onError: () => {
+      toast.error("Error al actualizar preferencia");
+    },
+  });
+
+  const whatsappEnabled = doctor?.whatsappNotifications ?? false;
+
+  return (
+    <div className="rounded-2xl border border-border bg-background p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10">
+            <Smartphone className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-display text-lg">Notificaciones por WhatsApp</h3>
+            <p className="text-sm text-muted-foreground">
+              Recibí tu listado de turnos del día siguiente a las 21:00 ARG
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={whatsappEnabled}
+          onCheckedChange={(checked) => toggleWhatsApp.mutate(checked)}
+          disabled={toggleWhatsApp.isPending || isLoading}
+        />
+      </div>
+      {whatsappEnabled && (
+        <p className="mt-3 text-xs text-teal">
+          ✓ Activado — mañana recibirás tus turnos por WhatsApp
+        </p>
+      )}
+    </div>
+  );
+}
 
 function DoctorPanel() {
   const { user, loading, hasRole } = useAuth();
@@ -177,7 +244,10 @@ function DoctorPanel() {
           <DescriptionTab userId={user.id} />
         </TabsContent>
         <TabsContent value="perfil">
-          <ProfileEditor />
+          <div className="mt-6 space-y-6">
+            <ProfileEditor />
+            <DoctorWhatsAppToggle userId={user!.id} />
+          </div>
         </TabsContent>
       </Tabs>
     </DashboardLayout>
@@ -187,6 +257,7 @@ function DoctorPanel() {
 function AgendaTab({ userId }: { userId: string }) {
   const [view, setView] = useState<"day" | "week">("day");
   const [cursor, setCursor] = useState<Date>(startOfDay(new Date()));
+  const [turnoOpen, setTurnoOpen] = useState(false);
 
   const { data: doctorId } = useQuery({
     queryKey: ["my-doctor-id", userId],
@@ -242,6 +313,19 @@ function AgendaTab({ userId }: { userId: string }) {
             <TabsTrigger value="week">Semana</TabsTrigger>
           </TabsList>
         </Tabs>
+        {doctorId && (
+          <>
+            <Button onClick={() => setTurnoOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" /> Nuevo turno
+            </Button>
+            <DoctorNewTurnoDialog
+              doctorId={doctorId}
+              open={turnoOpen}
+              onOpenChange={setTurnoOpen}
+              onCreated={refetch}
+            />
+          </>
+        )}
       </div>
 
       <div className="mb-6 flex items-center justify-between rounded-2xl border border-border bg-background p-4">
@@ -1330,5 +1414,340 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
         </Dialog>
       </div>
     </div>
+  );
+}
+
+function DoctorNewTurnoDialog({
+  doctorId,
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  doctorId: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onCreated: () => void;
+}) {
+  const [step, setStep] = useState<"patient" | "details">("patient");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [patients, setPatients] = useState<
+    { id: string; firstName: string; lastName: string; email: string; phone: string; documentNumber: string | null }[]
+  >([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  } | null>(null);
+
+  const [specialties, setSpecialties] = useState<{ id: string; name: string }[]>([]);
+  const [selectedSpecialtyId, setSelectedSpecialtyId] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [slots, setSlots] = useState<{ value: string; available: boolean }[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const doSearch = useCallback(async (term: string) => {
+    if (term.length < 2) {
+      setPatients([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await searchPatients({ data: { search: term } });
+      setPatients(res);
+    } catch {
+      setPatients([]);
+    }
+    setSearching(false);
+  }, []);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(searchTerm), 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchTerm, doSearch]);
+
+  useEffect(() => {
+    if (!open) {
+      setStep("patient");
+      setSearchTerm("");
+      setPatients([]);
+      setSelectedPatient(null);
+      setSelectedSpecialtyId("");
+      setSelectedDate("");
+      setSlots([]);
+      setSelectedSlot("");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    getAllSpecialties().then((s) => {
+      setSpecialties(s);
+      if (s.length === 1) setSelectedSpecialtyId(s[0].id);
+    }).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      setSlots([]);
+      setSelectedSlot("");
+      return;
+    }
+    const loadSlots = async () => {
+      try {
+        const { getDoctorSchedule } = await import("@/lib/api/doctor-schedule.functions");
+        const schedule = await getDoctorSchedule({ data: { doctorId } });
+        const [yr, mo, dy] = selectedDate.split("-").map(Number);
+        const date = new Date(yr, mo - 1, dy);
+        const weekday = (date.getDay() + 6) % 7;
+        const blocks = (schedule ?? []).filter((s: { weekday: number }) => s.weekday === weekday);
+        if (blocks.length === 0) {
+          setSlots([]);
+          return;
+        }
+
+        const existing = await getDayAppointments({
+          data: { doctorId, date: selectedDate },
+        });
+        const occupiedRanges = (existing ?? [])
+          .filter((a: any) => a.scheduledAt && a.status !== "cancelado")
+          .map((a: any) => {
+            const apptDate = new Date(a.scheduledAt);
+            const startMin = apptDate.getHours() * 60 + apptDate.getMinutes();
+            const dur = Number(a.durationMinutes ?? 30) || 30;
+            return { start: startMin, end: startMin + dur };
+          });
+
+        const generated: { value: string; available: boolean }[] = [];
+        for (const b of blocks) {
+          const [sh, sm] = String(b.startTime).split(":").map(Number);
+          const [eh, em] = String(b.endTime).split(":").map(Number);
+          const blockStartMin = sh * 60 + sm;
+          const blockEndMin = eh * 60 + em;
+          for (let m = blockStartMin; m + 30 <= blockEndMin; m += 30) {
+            const slotEnd = m + 30;
+            const isTaken = occupiedRanges.some((r) => m < r.end && slotEnd > r.start);
+            const hh = String(Math.floor(m / 60)).padStart(2, "0");
+            const mm = String(m % 60).padStart(2, "0");
+            generated.push({ value: `${hh}:${mm}`, available: !isTaken });
+          }
+        }
+        setSlots(generated);
+      } catch {
+        setSlots([]);
+      }
+    };
+    loadSlots();
+  }, [doctorId, selectedDate]);
+
+  const handleSubmit = async () => {
+    if (!selectedPatient || !selectedSlot || !selectedDate || !selectedSpecialtyId) return;
+    setSubmitting(true);
+    try {
+      const [sh, sm] = selectedSlot.split(":").map(Number);
+      const [yr, mo, dy] = selectedDate.split("-").map(Number);
+      const scheduledAt = new Date(yr, mo - 1, dy);
+      scheduledAt.setHours(sh, sm, 0, 0);
+      await bookAppointment({
+        data: {
+          patientId: selectedPatient.id,
+          doctorId,
+          specialtyId: selectedSpecialtyId,
+          scheduledAt: scheduledAt.toISOString(),
+          durationMinutes: 30,
+        },
+      });
+      toast.success("Turno creado");
+      onOpenChange(false);
+      onCreated();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al crear el turno");
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {step === "patient" ? "Seleccionar paciente" : "Detalles del turno"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === "patient" ? (
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Buscar paciente por nombre, email o DNI..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            {searching && (
+              <p className="text-center text-sm text-muted-foreground">Buscando...</p>
+            )}
+
+            {selectedPatient && (
+              <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-medium">
+                    {selectedPatient.firstName} {selectedPatient.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{selectedPatient.email}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedPatient(null);
+                    setSearchTerm("");
+                  }}
+                >
+                  Cambiar
+                </Button>
+              </div>
+            )}
+
+            {!selectedPatient &&
+              patients.length > 0 &&
+              patients.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="w-full rounded-lg border border-border p-3 text-left hover:bg-muted/50 transition-colors"
+                  onClick={() => {
+                    setSelectedPatient({ id: p.id, firstName: p.firstName, lastName: p.lastName, email: p.email, phone: p.phone });
+                    setPatients([]);
+                    setSearchTerm("");
+                  }}
+                >
+                  <p className="text-sm font-medium">
+                    {p.firstName} {p.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{p.email}</p>
+                </button>
+              ))}
+
+            {!selectedPatient &&
+              searchTerm.length >= 2 &&
+              !searching &&
+              patients.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground">
+                  No se encontraron pacientes con ese criterio.
+                </p>
+              )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={!selectedPatient}
+                onClick={() => setStep("details")}
+              >
+                Siguiente
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {selectedPatient && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-sm font-medium">
+                  {selectedPatient.firstName} {selectedPatient.lastName}
+                </p>
+                <p className="text-xs text-muted-foreground">{selectedPatient.email}</p>
+              </div>
+            )}
+
+            <div>
+              <Label>Especialidad</Label>
+              <Select
+                value={selectedSpecialtyId}
+                onValueChange={setSelectedSpecialtyId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar especialidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {specialties.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Fecha</Label>
+              <Input
+                type="date"
+                value={selectedDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setSelectedSlot("");
+                }}
+              />
+            </div>
+
+            {selectedDate && slots.length > 0 && (
+              <div>
+                <Label>Horario</Label>
+                <div className="mt-1 grid grid-cols-4 gap-2 sm:grid-cols-5">
+                  {slots.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      disabled={!s.available}
+                      className={`rounded-lg border px-2 py-2 text-sm transition-colors ${
+                        selectedSlot === s.value
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : s.available
+                            ? "border-border hover:border-primary hover:bg-primary/5"
+                            : "border-border cursor-not-allowed text-muted-foreground/40 line-through"
+                      }`}
+                      onClick={() => setSelectedSlot(s.value)}
+                    >
+                      {s.value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedDate && slots.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No hay horarios disponibles para esta fecha.
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep("patient")}>
+                Atrás
+              </Button>
+              <Button
+                disabled={!selectedSpecialtyId || !selectedSlot || submitting}
+                onClick={handleSubmit}
+              >
+                {submitting ? "Creando..." : "Confirmar turno"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

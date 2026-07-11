@@ -60,3 +60,18 @@ export const deleteDoctor = createServerFn({ method: "POST" })
     await db.delete(doctors).where(eq(doctors.id, data.id));
     return { success: true };
   });
+
+export const updateDoctorWhatsappPreference = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      doctorId: z.string().uuid(),
+      enabled: z.boolean(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    await db
+      .update(doctors)
+      .set({ whatsappNotifications: data.enabled })
+      .where(eq(doctors.id, data.doctorId));
+    return { success: true };
+  });

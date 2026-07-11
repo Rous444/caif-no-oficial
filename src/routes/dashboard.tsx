@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Calendar, Clock, Plus, Stethoscope, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -27,14 +27,13 @@ import { getActiveSpecialties } from "@/lib/api/specialties.functions";
 import { getDoctorsBySpecialty } from "@/lib/api/admin-doctors.functions";
 import { getDoctorSchedule } from "@/lib/api/doctor-schedule.functions";
 import { ProfileEditor } from "@/components/ProfileEditor";
-
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Mi panel · CAIF" }] }),
   component: Dashboard,
 });
 
 function Dashboard() {
-  const { user, loading, roles } = useAuth();
+  const { user, loading, roles, hasRole } = useAuth();
   const navigate = useNavigate();
   const [showHistory, setShowHistory] = useState(false);
 
@@ -124,6 +123,7 @@ function Dashboard() {
       <section className="mt-10">
         <ProfileEditor />
       </section>
+
     </DashboardLayout>
   );
 }
@@ -592,3 +592,4 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
