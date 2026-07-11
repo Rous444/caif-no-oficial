@@ -150,10 +150,7 @@ export const hideDefaultImage = createServerFn({ method: "POST" })
     await db
       .delete(galleryImages)
       .where(
-        and(
-          eq(galleryImages.imageType, "hidden_default"),
-          eq(galleryImages.title, data.defaultId),
-        ),
+        and(eq(galleryImages.imageType, "hidden_default"), eq(galleryImages.title, data.defaultId)),
       );
 
     // Insert new hidden record
@@ -178,10 +175,7 @@ export const unhideDefaultImage = createServerFn({ method: "POST" })
     await db
       .delete(galleryImages)
       .where(
-        and(
-          eq(galleryImages.imageType, "hidden_default"),
-          eq(galleryImages.title, data.defaultId),
-        ),
+        and(eq(galleryImages.imageType, "hidden_default"), eq(galleryImages.title, data.defaultId)),
       );
     return { success: true };
   });
@@ -194,11 +188,6 @@ export const getHiddenDefaultIds = createServerFn({ method: "GET" }).handler(asy
   const records = await db
     .select({ title: galleryImages.title })
     .from(galleryImages)
-    .where(
-      and(
-        eq(galleryImages.imageType, "hidden_default"),
-        eq(galleryImages.isActive, false),
-      ),
-    );
+    .where(and(eq(galleryImages.imageType, "hidden_default"), eq(galleryImages.isActive, false)));
   return records.map((r) => r.title).filter(Boolean) as string[];
 });

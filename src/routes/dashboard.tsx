@@ -123,7 +123,6 @@ function Dashboard() {
       <section className="mt-10">
         <ProfileEditor />
       </section>
-
     </DashboardLayout>
   );
 }
@@ -592,4 +591,3 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

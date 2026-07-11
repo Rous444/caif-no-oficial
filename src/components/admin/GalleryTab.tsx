@@ -81,7 +81,6 @@ function compressImage(file: File): Promise<{ dataUrl: string; size: number }> {
   });
 }
 
-
 function getImageSrc(img: { url: string | null; fileData?: string | null }): string {
   return img.fileData || img.url || "";
 }

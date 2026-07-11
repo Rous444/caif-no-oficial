@@ -38,11 +38,12 @@ export const createDoctorAccount = createServerFn({ method: "POST" })
     const passwordHash = await hashPassword(defaultPassword);
 
     const userId = crypto.randomUUID();
+    const normalizedEmail = data.email.toLowerCase();
     const [newUser] = await db
       .insert(user)
       .values({
         id: userId,
-        email: data.email,
+        email: normalizedEmail,
         firstName: data.firstName,
         middleName: data.middleName || null,
         lastName: data.lastName,
@@ -60,7 +61,7 @@ export const createDoctorAccount = createServerFn({ method: "POST" })
     await db.insert(account).values({
       id: crypto.randomUUID(),
       userId: newUser.id,
-      accountId: newUser.id,
+      accountId: normalizedEmail,
       providerId: "credential",
       password: passwordHash,
       createdAt: new Date(),
@@ -111,11 +112,12 @@ export const createRecepcionistaAccount = createServerFn({ method: "POST" })
     const passwordHash = await hashPassword(defaultPassword);
 
     const userId = crypto.randomUUID();
+    const normalizedEmail = data.email.toLowerCase();
     const [newUser] = await db
       .insert(user)
       .values({
         id: userId,
-        email: data.email,
+        email: normalizedEmail,
         firstName: data.firstName,
         middleName: data.middleName || null,
         lastName: data.lastName,
@@ -133,7 +135,7 @@ export const createRecepcionistaAccount = createServerFn({ method: "POST" })
     await db.insert(account).values({
       id: crypto.randomUUID(),
       userId: newUser.id,
-      accountId: newUser.id,
+      accountId: normalizedEmail,
       providerId: "credential",
       password: passwordHash,
       createdAt: new Date(),
@@ -300,12 +302,13 @@ export const createPatientByStaff = createServerFn({ method: "POST" })
     const defaultPassword = process.env.DEFAULT_DOCTOR_PASSWORD || "MediCare2026!";
     const passwordHash = await hashPassword(defaultPassword);
 
+    const normalizedEmail = data.email.toLowerCase();
     const userId = crypto.randomUUID();
     const [newUser] = await db
       .insert(user)
       .values({
         id: userId,
-        email: data.email,
+        email: normalizedEmail,
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
@@ -320,7 +323,7 @@ export const createPatientByStaff = createServerFn({ method: "POST" })
     await db.insert(account).values({
       id: crypto.randomUUID(),
       userId: newUser.id,
-      accountId: newUser.id,
+      accountId: normalizedEmail,
       providerId: "credential",
       password: passwordHash,
       createdAt: new Date(),

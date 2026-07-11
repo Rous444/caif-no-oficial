@@ -75,7 +75,7 @@ async function seed() {
     await db.insert(account).values({
       id: crypto.randomUUID(),
       userId: adminId,
-      accountId: adminId,
+      accountId: adminEmail,
       providerId: "credential",
       password: passwordHash,
       createdAt: now,

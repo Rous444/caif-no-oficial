@@ -705,7 +705,6 @@ function SpecialtyDialog({
                   <SelectItem value="Broccoli">Broccoli</SelectItem>
                   <SelectItem value="Shrimp">Estomago</SelectItem>
                   <SelectItem value="Music">Música</SelectItem>
-                  
                 </SelectContent>
               </Select>
             </div>

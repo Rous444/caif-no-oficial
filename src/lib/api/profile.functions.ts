@@ -45,22 +45,23 @@ export const updateProfile = createServerFn({ method: "POST" })
     if (fields.lastName !== undefined) updateData.lastName = fields.lastName;
     if (fields.phone !== undefined) updateData.phone = fields.phone;
     if (fields.email !== undefined) {
+      const normalizedEmail = fields.email.toLowerCase();
       const existing = await db
         .select({ id: user.id })
         .from(user)
-        .where(and(eq(user.email, fields.email), eq(user.id, userId)))
+        .where(and(eq(user.email, normalizedEmail), eq(user.id, userId)))
         .limit(1);
       if (!existing.length) {
         const dup = await db
           .select({ id: user.id })
           .from(user)
-          .where(eq(user.email, fields.email))
+          .where(eq(user.email, normalizedEmail))
           .limit(1);
         if (dup.length) throw new Error("Ya existe un usuario con este email");
       }
-      updateData.email = fields.email;
+      updateData.email = normalizedEmail;
       updateData.name =
-        `${updateData.firstName ?? ""} ${updateData.lastName ?? ""}`.trim() || fields.email;
+        `${updateData.firstName ?? ""} ${updateData.lastName ?? ""}`.trim() || normalizedEmail;
     }
     await db.update(user).set(updateData).where(eq(user.id, userId));
     return { success: true };

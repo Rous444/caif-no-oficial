@@ -103,10 +103,7 @@ export const getMyDoctorProfile = createServerFn({ method: "POST" })
       with: { specialties: { with: { specialty: true } }, user: true },
     });
     if (!doctor) {
-      const [created] = await db
-        .insert(doctors)
-        .values({ userId: data.userId })
-        .returning();
+      const [created] = await db.insert(doctors).values({ userId: data.userId }).returning();
       doctor = await db.query.doctors.findFirst({
         where: eq(doctors.id, created.id),
         with: { specialties: { with: { specialty: true } }, user: true },

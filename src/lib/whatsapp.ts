@@ -121,10 +121,7 @@ export async function destroyWhatsAppClient(): Promise<void> {
   }
 }
 
-export async function sendTextMessage(
-  toPhone: string,
-  message: string,
-): Promise<void> {
+export async function sendTextMessage(toPhone: string, message: string): Promise<void> {
   if (!client || !isConnected) {
     throw new Error("WhatsApp no está conectado");
   }

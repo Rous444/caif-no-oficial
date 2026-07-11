@@ -1,7 +1,7 @@
 let scheduled = false;
 
-const INIT_CRON = "45 20 * * *";   // 20:45 ARG — warm up WhatsApp client
-const SEND_CRON = "0 21 * * *";    // 21:00 ARG — send messages
+const INIT_CRON = "45 20 * * *"; // 20:45 ARG — warm up WhatsApp client
+const SEND_CRON = "0 21 * * *"; // 21:00 ARG — send messages
 const DESTROY_CRON = "5 21 * * *"; // 21:05 ARG — destroy client, free memory
 const MEMORY_LOG_CRON = "0 * * * *"; // every hour — log memory usage
 
@@ -30,8 +30,7 @@ export function startDailyScheduler() {
         async () => {
           console.log("[scheduler] Enviando turneros por WhatsApp...");
 
-          const { isWhatsAppConnected, startWhatsAppClient } =
-            await import("./whatsapp");
+          const { isWhatsAppConnected, startWhatsAppClient } = await import("./whatsapp");
           const { sendAllDoctorTurneros } = await import("./whatsapp-messages");
           const { getTomorrowAppointmentsByDoctor } = await import("./pdf-turnero");
 

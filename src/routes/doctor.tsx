@@ -122,13 +122,14 @@ function DoctorWhatsAppToggle({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
 
   const toggleWhatsApp = useMutation({
-    mutationFn: (enabled: boolean) =>
-      updateMyWhatsappPreference({ data: { userId, enabled } }),
+    mutationFn: (enabled: boolean) => updateMyWhatsappPreference({ data: { userId, enabled } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-doctor-profile", userId] });
-      toast.success(doctor?.whatsappNotifications
-        ? "Notificaciones de WhatsApp desactivadas"
-        : "Notificaciones de WhatsApp activadas");
+      toast.success(
+        doctor?.whatsappNotifications
+          ? "Notificaciones de WhatsApp desactivadas"
+          : "Notificaciones de WhatsApp activadas",
+      );
     },
     onError: () => {
       toast.error("Error al actualizar preferencia");
@@ -1431,7 +1432,14 @@ function DoctorNewTurnoDialog({
   const [step, setStep] = useState<"patient" | "details">("patient");
   const [searchTerm, setSearchTerm] = useState("");
   const [patients, setPatients] = useState<
-    { id: string; firstName: string; lastName: string; email: string; phone: string; documentNumber: string | null }[]
+    {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      documentNumber: string | null;
+    }[]
   >([]);
   const [searching, setSearching] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<{
@@ -1487,10 +1495,12 @@ function DoctorNewTurnoDialog({
   }, [open]);
 
   useEffect(() => {
-    getAllSpecialties().then((s) => {
-      setSpecialties(s);
-      if (s.length === 1) setSelectedSpecialtyId(s[0].id);
-    }).catch(console.error);
+    getAllSpecialties()
+      .then((s) => {
+        setSpecialties(s);
+        if (s.length === 1) setSelectedSpecialtyId(s[0].id);
+      })
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -1594,9 +1604,7 @@ function DoctorNewTurnoDialog({
               />
             </div>
 
-            {searching && (
-              <p className="text-center text-sm text-muted-foreground">Buscando...</p>
-            )}
+            {searching && <p className="text-center text-sm text-muted-foreground">Buscando...</p>}
 
             {selectedPatient && (
               <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
@@ -1627,7 +1635,13 @@ function DoctorNewTurnoDialog({
                   type="button"
                   className="w-full rounded-lg border border-border p-3 text-left hover:bg-muted/50 transition-colors"
                   onClick={() => {
-                    setSelectedPatient({ id: p.id, firstName: p.firstName, lastName: p.lastName, email: p.email, phone: p.phone });
+                    setSelectedPatient({
+                      id: p.id,
+                      firstName: p.firstName,
+                      lastName: p.lastName,
+                      email: p.email,
+                      phone: p.phone,
+                    });
                     setPatients([]);
                     setSearchTerm("");
                   }}
@@ -1639,23 +1653,17 @@ function DoctorNewTurnoDialog({
                 </button>
               ))}
 
-            {!selectedPatient &&
-              searchTerm.length >= 2 &&
-              !searching &&
-              patients.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground">
-                  No se encontraron pacientes con ese criterio.
-                </p>
-              )}
+            {!selectedPatient && searchTerm.length >= 2 && !searching && patients.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground">
+                No se encontraron pacientes con ese criterio.
+              </p>
+            )}
 
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button
-                disabled={!selectedPatient}
-                onClick={() => setStep("details")}
-              >
+              <Button disabled={!selectedPatient} onClick={() => setStep("details")}>
                 Siguiente
               </Button>
             </DialogFooter>
@@ -1673,10 +1681,7 @@ function DoctorNewTurnoDialog({
 
             <div>
               <Label>Especialidad</Label>
-              <Select
-                value={selectedSpecialtyId}
-                onValueChange={setSelectedSpecialtyId}
-              >
+              <Select value={selectedSpecialtyId} onValueChange={setSelectedSpecialtyId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar especialidad" />
                 </SelectTrigger>

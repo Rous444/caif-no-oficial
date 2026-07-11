@@ -164,15 +164,10 @@ export function WhatsAppTab() {
         <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center text-muted-foreground">
           <p>WhatsApp no iniciado</p>
           <p className="mt-2 text-xs">
-            {status.error ? `Error: ${status.error}` : "Presioná \"Iniciar WhatsApp\" para conectar"}
+            {status.error ? `Error: ${status.error}` : 'Presioná "Iniciar WhatsApp" para conectar'}
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <Button
-              variant="default"
-              size="lg"
-              onClick={handleInit}
-              disabled={initLoading}
-            >
+            <Button variant="default" size="lg" onClick={handleInit} disabled={initLoading}>
               {initLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -181,11 +176,7 @@ export function WhatsAppTab() {
               Iniciar WhatsApp
             </Button>
             {status.error && (
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={handleRestart}
-              >
+              <Button variant="outline" size="lg" onClick={handleRestart}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Reintentar
               </Button>
@@ -210,7 +201,9 @@ export function WhatsAppTab() {
           </div>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="test-phone">Número de teléfono (formato internacional, ej: 5491123456789)</Label>
+              <Label htmlFor="test-phone">
+                Número de teléfono (formato internacional, ej: 5491123456789)
+              </Label>
               <Input
                 id="test-phone"
                 value={testPhone}

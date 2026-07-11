@@ -7,7 +7,7 @@ export async function getUserById(id: string) {
 }
 
 export async function getUserByEmail(email: string) {
-  return db.query.user.findFirst({ where: eq(user.email, email) });
+  return db.query.user.findFirst({ where: eq(user.email, email.toLowerCase()) });
 }
 
 export async function getPatientByUserId(userId: string) {
