@@ -1,4 +1,6 @@
 import { createRequire } from "module";
+import { rm } from "fs/promises";
+import path from "path";
 
 const _require = createRequire(import.meta.url);
 
@@ -10,8 +12,23 @@ let startError: string | null = null;
 
 const SESSION_PATH = process.env.WHATSAPP_SESSION_PATH || "./whatsapp-session";
 
+// whatsapp-web.js LocalAuth guarda el perfil de Chromium en `${dataPath}/session`
+// (sin clientId). Los locks Singleton* viven directamente en ese directorio.
+const PROFILE_DIR = path.join(SESSION_PATH, "session");
+
 function getWA() {
   return _require("whatsapp-web.js");
+}
+
+// C8: en disco persistente (/var/data en Render), un contenedor que murió sin cerrar
+// Chromium deja SingletonLock/Socket/Cookie apuntando a un hostname/PID viejo, y el
+// contenedor nuevo se niega a arrancar (Code 21). Sólo se llama cuando client == null
+// (startWhatsAppClient sale temprano si hay cliente activo), así que nunca borramos un
+// lock en uso por un Chromium vivo.
+async function cleanChromiumLocks(): Promise<void> {
+  for (const f of ["SingletonLock", "SingletonSocket", "SingletonCookie"]) {
+    await rm(path.join(PROFILE_DIR, f), { force: true }).catch(() => {});
+  }
 }
 
 export function getWhatsAppStatus() {
@@ -33,6 +50,9 @@ export async function startWhatsAppClient(): Promise<void> {
   startError = null;
 
   try {
+    console.log(`[whatsapp] Perfil de Chromium: ${PROFILE_DIR}`);
+    await cleanChromiumLocks();
+
     const wa = getWA();
     const { Client, LocalAuth } = wa;
 

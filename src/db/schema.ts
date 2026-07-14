@@ -182,6 +182,19 @@ export const medicalRecords = pgTable("medical_records", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Registro de envíos del turnero por WhatsApp (Plan 02, P1). Append-only:
+// `doctorId` es un uuid SIN foreign key a propósito, para que el log sobreviva
+// a un eventual borrado del médico y para que el cambio de schema sea puramente
+// aditivo (una tabla nueva, sin tocar ni referenciar tablas existentes).
+export const whatsappLog = pgTable("whatsapp_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  doctorId: uuid("doctor_id"),
+  targetDate: text("target_date").notNull(), // fecha del turnero (YYYY-MM-DD, ARG)
+  status: text("status", { enum: ["sent", "failed"] }).notNull(),
+  error: text("error"),
+  sentAt: timestamp("sent_at").defaultNow(),
+});
+
 export const notifications = pgTable("notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id")

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { user, patients } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { requireSession } from "./_guards";
 
 export const resolveLoginIdentifier = createServerFn({ method: "POST" })
   .inputValidator(z.object({ identifier: z.string().min(1) }))
@@ -31,15 +32,15 @@ export const resolveLoginIdentifier = createServerFn({ method: "POST" })
 export const updateProfile = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      userId: z.string(),
       firstName: z.string().min(1).optional(),
       lastName: z.string().min(1).optional(),
       phone: z.string().min(1).optional(),
       email: z.string().email().optional(),
     }),
   )
-  .handler(async ({ data }) => {
-    const { userId, ...fields } = data;
+  .handler(async ({ data: fields }) => {
+    const session = await requireSession();
+    const userId = session.user.id;
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (fields.firstName !== undefined) updateData.firstName = fields.firstName;
     if (fields.lastName !== undefined) updateData.lastName = fields.lastName;

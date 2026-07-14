@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { user, account, patients, doctors, doctorSpecialties } from "@/db/schema";
 import { eq, and, or, ilike } from "drizzle-orm";
 import { getUserByEmail, getAllUsers } from "./db-helpers";
+import { requireSession, requireRole, AuthError } from "./_guards";
 
 const createDoctorSchema = z.object({
   firstName: z.string().min(1, "Nombre requerido"),
@@ -29,6 +30,7 @@ const createRecepcionistaSchema = z.object({
 export const createDoctorAccount = createServerFn({ method: "POST" })
   .inputValidator(createDoctorSchema)
   .handler(async ({ data }) => {
+    await requireRole("admin");
     const existing = await getUserByEmail(data.email);
     if (existing) {
       throw new Error("Ya existe un usuario con este email");
@@ -103,6 +105,7 @@ export const createDoctorAccount = createServerFn({ method: "POST" })
 export const createRecepcionistaAccount = createServerFn({ method: "POST" })
   .inputValidator(createRecepcionistaSchema)
   .handler(async ({ data }) => {
+    await requireRole("admin");
     const existing = await getUserByEmail(data.email);
     if (existing) {
       throw new Error("Ya existe un usuario con este email");
@@ -166,6 +169,7 @@ export const getUsers = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     return getAllUsers(data);
   });
 
@@ -177,6 +181,7 @@ export const resetUserPassword = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     const passwordHash = await hashPassword(data.newPassword);
     await db
       .update(account)
@@ -197,6 +202,7 @@ export const updateUserActive = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     await db
       .update(user)
       .set({ isActive: data.isActive, updatedAt: new Date() })
@@ -208,6 +214,7 @@ export const updateUserActive = createServerFn({ method: "POST" })
 export const deleteUser = createServerFn({ method: "POST" })
   .inputValidator(z.object({ userId: z.string() }))
   .handler(async ({ data }) => {
+    await requireRole("admin");
     const target = await db.query.user.findFirst({
       where: eq(user.id, data.userId),
       columns: { role: true },
@@ -226,6 +233,11 @@ export const createPatientRecord = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    const session = await requireSession();
+    const isOwnAccount = session.user.email.toLowerCase() === data.email.toLowerCase();
+    if (!isOwnAccount && session.user.role !== "admin") {
+      throw new AuthError("FORBIDDEN", "No autorizado");
+    }
     const found = await getUserByEmail(data.email);
     if (!found) throw new Error("Usuario no encontrado");
     const existing = await db.query.patients.findFirst({
@@ -242,6 +254,7 @@ export const createPatientRecord = createServerFn({ method: "POST" })
 export const searchPatients = createServerFn({ method: "POST" })
   .inputValidator(z.object({ search: z.string().min(1) }))
   .handler(async ({ data }) => {
+    await requireRole("recepcionista", "admin", "medico");
     const term = `%${data.search}%`;
     const rows = await db
       .select({
@@ -287,6 +300,7 @@ export const createPatientByStaff = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("recepcionista", "admin");
     const existing = await getUserByEmail(data.email);
     if (existing) {
       throw new Error("Ya existe un usuario con este email");

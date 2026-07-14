@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { galleryImages } from "@/db/schema";
 import { eq, asc, and } from "drizzle-orm";
+import { requireRole } from "./_guards";
 
 export const getActiveGalleryImages = createServerFn({ method: "GET" }).handler(async () => {
   return db
@@ -13,6 +14,7 @@ export const getActiveGalleryImages = createServerFn({ method: "GET" }).handler(
 });
 
 export const getAllGalleryImages = createServerFn({ method: "GET" }).handler(async () => {
+  await requireRole("admin");
   return db.query.galleryImages.findMany({
     orderBy: (galleryImages, { asc }) => [asc(galleryImages.sortOrder)],
   });
@@ -30,6 +32,7 @@ export const createGalleryImage = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     const imageType = data.imageType ?? "url";
     if (imageType === "upload" && data.fileData) {
       const [newImage] = await db
@@ -72,6 +75,7 @@ export const updateGalleryImage = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     if (data.id) {
       const updateFields: Record<string, unknown> = {
         title: data.title || null,
@@ -128,6 +132,7 @@ export const updateGalleryImage = createServerFn({ method: "POST" })
 export const deleteGalleryImage = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {
+    await requireRole("admin");
     await db.delete(galleryImages).where(eq(galleryImages.id, data.id));
     return { success: true };
   });
@@ -146,6 +151,7 @@ export const hideDefaultImage = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     // Remove any existing hidden_default record for this defaultId
     await db
       .delete(galleryImages)
@@ -172,6 +178,7 @@ export const hideDefaultImage = createServerFn({ method: "POST" })
 export const unhideDefaultImage = createServerFn({ method: "POST" })
   .inputValidator(z.object({ defaultId: z.string() }))
   .handler(async ({ data }) => {
+    await requireRole("admin");
     await db
       .delete(galleryImages)
       .where(

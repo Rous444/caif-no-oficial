@@ -49,31 +49,41 @@ export function getArgentinaDateLabel(): string {
   return formatter.format(tomorrow);
 }
 
+export type DoctorSendResult = {
+  doctorId: string;
+  phone: string;
+  ok: boolean;
+  error?: string;
+};
+
 export async function sendDoctorTurnero(
   phone: string,
   doctorName: string,
   appointments: { hora: string; paciente: string }[],
-): Promise<boolean> {
+): Promise<{ ok: boolean; error?: string }> {
   try {
     const dateLabel = getArgentinaDateLabel();
     const message = formatTurneroForDoctor(doctorName, dateLabel, appointments);
     await sendTextMessage(phone, message);
     console.log(`[whatsapp] Turnero enviado a ${doctorName} (${phone})`);
-    return true;
+    return { ok: true };
   } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
     console.error(`[whatsapp] Error enviando turnero a ${doctorName}:`, err);
-    return false;
+    return { ok: false, error };
   }
 }
 
 export async function sendAllDoctorTurneros(
   doctors: DoctorTurnero[],
-): Promise<{ sent: number; failed: number }> {
+): Promise<{ sent: number; failed: number; results: DoctorSendResult[] }> {
   let sent = 0;
   let failed = 0;
+  const results: DoctorSendResult[] = [];
 
   for (const doc of doctors) {
-    const ok = await sendDoctorTurnero(doc.phone, doc.doctorName, doc.appointments);
+    const { ok, error } = await sendDoctorTurnero(doc.phone, doc.doctorName, doc.appointments);
+    results.push({ doctorId: doc.doctorId, phone: doc.phone, ok, error });
     if (ok) {
       sent++;
     } else {
@@ -86,5 +96,5 @@ export async function sendAllDoctorTurneros(
     }
   }
 
-  return { sent, failed };
+  return { sent, failed, results };
 }

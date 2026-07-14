@@ -45,7 +45,7 @@ function Dashboard() {
     queryKey: ["my-appointments", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      return getMyAppointments({ data: { userId: user!.id } });
+      return getMyAppointments();
     },
   });
 
@@ -54,8 +54,9 @@ function Dashboard() {
       await cancelAppointment({ data: { appointmentId: id } });
       toast.success("Turno cancelado");
       refetch();
-    } catch {
-      toast.error("Error al cancelar el turno");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al cancelar el turno");
+      refetch();
     }
   };
 
@@ -179,11 +180,11 @@ function ApptRow({ appt, onCancel }: { appt: any; onCancel?: () => void }) {
       </div>
       <div className="flex items-center gap-3">
         <span
-          className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusColors[appt.status]}`}
+          className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusColors[appt.displayStatus ?? appt.status]}`}
         >
-          {appt.status}
+          {appt.displayStatus ?? appt.status}
         </span>
-        {onCancel && appt.status !== "cancelado" && (
+        {onCancel && (appt.status === "pendiente" || appt.status === "confirmado") && (
           <Button size="sm" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { doctors, doctorSpecialties } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { requireRole } from "./_guards";
 
 export const getDoctorsBySpecialty = createServerFn({ method: "POST" })
   .inputValidator(z.object({ specialtyId: z.string().uuid() }))
@@ -15,6 +16,7 @@ export const getDoctorsBySpecialty = createServerFn({ method: "POST" })
   });
 
 export const getAllDoctors = createServerFn({ method: "GET" }).handler(async () => {
+  await requireRole("recepcionista", "admin");
   return db.query.doctors.findMany({
     with: {
       specialty: true,
@@ -37,6 +39,7 @@ export const updateDoctor = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     const { id, specialtyIds, insuranceCompanies, ...updateData } = data;
     await db
       .update(doctors)
@@ -56,6 +59,7 @@ export const updateDoctor = createServerFn({ method: "POST" })
 export const deleteDoctor = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {
+    await requireRole("admin");
     await db.delete(doctorSpecialties).where(eq(doctorSpecialties.doctorId, data.id));
     await db.delete(doctors).where(eq(doctors.id, data.id));
     return { success: true };
@@ -69,6 +73,7 @@ export const updateDoctorWhatsappPreference = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin", "medico");
     await db
       .update(doctors)
       .set({ whatsappNotifications: data.enabled })

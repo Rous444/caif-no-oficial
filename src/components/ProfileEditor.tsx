@@ -27,7 +27,6 @@ export function ProfileEditor() {
     try {
       await updateProfile({
         data: {
-          userId: user.id,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           phone: phone.trim(),

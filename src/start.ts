@@ -22,6 +22,13 @@ const authApiMiddleware = createMiddleware().server(async ({ request, next }) =>
     const { auth } = await import("./lib/auth.server");
     return auth.handler(request);
   }
+  if (url.pathname.startsWith("/api/whatsapp/")) {
+    const { auth } = await import("./lib/auth.server");
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user || session.user.role !== "admin") {
+      return Response.json({ error: "No autorizado" }, { status: 401 });
+    }
+  }
   if (url.pathname === "/api/whatsapp/status") {
     const { getWhatsAppStatus } = await import("./lib/whatsapp");
     return Response.json(getWhatsAppStatus());

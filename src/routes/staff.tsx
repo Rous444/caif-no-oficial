@@ -60,6 +60,7 @@ type StaffAppt = {
   scheduledAt: Date;
   durationMinutes: number | null;
   status: "pendiente" | "confirmado" | "cancelado" | "completado" | "ausente";
+  displayStatus?: "pendiente" | "confirmado" | "cancelado" | "completado" | "ausente";
   notes: string | null;
   doctor: {
     id: string;
@@ -127,8 +128,9 @@ function StaffPanel() {
       await updateAppointmentStatus({ data: { appointmentId: id, status } });
       toast.success("Turno actualizado");
       refetch();
-    } catch {
-      toast.error("Error al actualizar el turno");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al actualizar el turno");
+      refetch();
     }
   };
 
@@ -300,7 +302,10 @@ function WeekView({
                   ? `${a.patient.firstName} ${a.patient.lastName}`
                   : "Paciente";
                 return (
-                  <div key={a.id} className={`rounded-md px-2 py-1 text-xs ${statusBg(a.status)}`}>
+                  <div
+                    key={a.id}
+                    className={`rounded-md px-2 py-1 text-xs ${statusBg(a.displayStatus ?? a.status)}`}
+                  >
                     <div className="font-medium">{fmtTime(new Date(a.scheduledAt))}</div>
                     <div className="truncate text-muted-foreground">{patientName}</div>
                   </div>
@@ -386,11 +391,11 @@ function ApptCard({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusBg(appt.status)}`}
+          className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusBg(appt.displayStatus ?? appt.status)}`}
         >
-          {appt.status}
+          {appt.displayStatus ?? appt.status}
         </span>
-        {appt.status !== "confirmado" && appt.status !== "cancelado" && (
+        {appt.status === "pendiente" && (
           <Button
             size="sm"
             onClick={() => onUpdateStatus(appt.id, "confirmado")}
@@ -400,7 +405,7 @@ function ApptCard({
             <span className="sm:hidden">Conf.</span>
           </Button>
         )}
-        {appt.status !== "completado" && appt.status !== "cancelado" && (
+        {(appt.status === "pendiente" || appt.status === "confirmado") && (
           <Button
             size="sm"
             variant="outline"
@@ -411,18 +416,7 @@ function ApptCard({
             <span className="sm:hidden">Reprog.</span>
           </Button>
         )}
-        {appt.status === "confirmado" && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onUpdateStatus(appt.id, "completado")}
-            className="min-h-[44px]"
-          >
-            <span className="hidden sm:inline">Completado</span>
-            <span className="sm:hidden">Compl.</span>
-          </Button>
-        )}
-        {appt.status !== "cancelado" && (
+        {(appt.status === "pendiente" || appt.status === "confirmado") && (
           <Button
             size="sm"
             variant="destructive"
@@ -488,8 +482,8 @@ function RescheduleDialog({
       });
       toast.success("Turno reprogramado");
       onDone();
-    } catch {
-      toast.error("Error al reprogramar el turno");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al reprogramar el turno");
     }
     setSaving(false);
   };

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { specialties } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { requireRole } from "./_guards";
 
 export const getActiveSpecialties = createServerFn({ method: "GET" }).handler(async () => {
   return db
@@ -28,6 +29,7 @@ export const createSpecialty = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     const [newSpecialty] = await db.insert(specialties).values(data).returning();
     return newSpecialty;
   });
@@ -44,6 +46,7 @@ export const updateSpecialty = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    await requireRole("admin");
     const { id, ...updateData } = data;
     await db.update(specialties).set(updateData).where(eq(specialties.id, id));
     return { success: true };
@@ -52,6 +55,7 @@ export const updateSpecialty = createServerFn({ method: "POST" })
 export const deleteSpecialty = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {
+    await requireRole("admin");
     await db.delete(specialties).where(eq(specialties.id, data.id));
     return { success: true };
   });

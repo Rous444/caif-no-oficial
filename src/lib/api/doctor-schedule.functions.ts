@@ -3,23 +3,20 @@ import { z } from "zod";
 import { db } from "@/db";
 import { doctorSchedules, doctors } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireDoctor } from "./_guards";
 
 export const updateMyInsurance = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      userId: z.string(),
       insuranceCompanies: z.array(z.string()),
     }),
   )
   .handler(async ({ data }) => {
-    const doctor = await db.query.doctors.findFirst({
-      where: eq(doctors.userId, data.userId),
-    });
-    if (!doctor) throw new Error("No se encontró perfil de médico");
+    const { doctorId } = await requireDoctor();
     await db
       .update(doctors)
       .set({ insuranceCompanies: data.insuranceCompanies })
-      .where(eq(doctors.id, doctor.id));
+      .where(eq(doctors.id, doctorId));
     return { success: true };
   });
 
@@ -31,37 +28,21 @@ const scheduleSchema = z.object({
   endTime: z.string().regex(timeRegex, "Formato de hora inválido (HH:MM)"),
 });
 
-export const getMySchedule = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ userId: z.string() }))
-  .handler(async ({ data }) => {
-    const doctor = await db.query.doctors.findFirst({
-      where: eq(doctors.userId, data.userId),
-    });
-
-    if (!doctor) {
-      throw new Error("No se encontró perfil de médico");
-    }
-
-    return db.query.doctorSchedules.findMany({
-      where: eq(doctorSchedules.doctorId, doctor.id),
-    });
+export const getMySchedule = createServerFn({ method: "POST" }).handler(async () => {
+  const { doctorId } = await requireDoctor();
+  return db.query.doctorSchedules.findMany({
+    where: eq(doctorSchedules.doctorId, doctorId),
   });
+});
 
 export const updateMySchedule = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      userId: z.string(),
       schedules: z.array(scheduleSchema),
     }),
   )
   .handler(async ({ data }) => {
-    const doctor = await db.query.doctors.findFirst({
-      where: eq(doctors.userId, data.userId),
-    });
-
-    if (!doctor) {
-      throw new Error("No se encontró perfil de médico");
-    }
+    const { doctorId } = await requireDoctor();
 
     for (const sched of data.schedules) {
       if (sched.startTime >= sched.endTime) {
@@ -71,18 +52,35 @@ export const updateMySchedule = createServerFn({ method: "POST" })
       }
     }
 
-    await db.delete(doctorSchedules).where(eq(doctorSchedules.doctorId, doctor.id));
-
-    if (data.schedules.length > 0) {
-      await db.insert(doctorSchedules).values(
-        data.schedules.map((s) => ({
-          doctorId: doctor.id,
-          weekday: s.weekday,
-          startTime: s.startTime,
-          endTime: s.endTime,
-        })),
-      );
+    const byWeekday = new Map<number, typeof data.schedules>();
+    for (const s of data.schedules) {
+      const list = byWeekday.get(s.weekday) ?? [];
+      list.push(s);
+      byWeekday.set(s.weekday, list);
     }
+    for (const [weekday, blocks] of byWeekday) {
+      const sorted = [...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i].startTime < sorted[i - 1].endTime) {
+          throw new Error(`Los horarios del día ${weekday} se superponen entre sí`);
+        }
+      }
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.delete(doctorSchedules).where(eq(doctorSchedules.doctorId, doctorId));
+
+      if (data.schedules.length > 0) {
+        await tx.insert(doctorSchedules).values(
+          data.schedules.map((s) => ({
+            doctorId,
+            weekday: s.weekday,
+            startTime: s.startTime,
+            endTime: s.endTime,
+          })),
+        );
+      }
+    });
 
     return { success: true };
   });
@@ -95,64 +93,39 @@ export const getDoctorSchedule = createServerFn({ method: "POST" })
     });
   });
 
-export const getMyDoctorProfile = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ userId: z.string() }))
-  .handler(async ({ data }) => {
-    let doctor = await db.query.doctors.findFirst({
-      where: eq(doctors.userId, data.userId),
-      with: { specialties: { with: { specialty: true } }, user: true },
-    });
-    if (!doctor) {
-      const [created] = await db.insert(doctors).values({ userId: data.userId }).returning();
-      doctor = await db.query.doctors.findFirst({
-        where: eq(doctors.id, created.id),
-        with: { specialties: { with: { specialty: true } }, user: true },
-      });
-    }
-    return doctor!;
+export const getMyDoctorProfile = createServerFn({ method: "POST" }).handler(async () => {
+  const { doctorId } = await requireDoctor();
+  const doctor = await db.query.doctors.findFirst({
+    where: eq(doctors.id, doctorId),
+    with: { specialties: { with: { specialty: true } }, user: true },
   });
+  return doctor!;
+});
 
 export const updateMyBio = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ userId: z.string(), bio: z.string().max(500) }))
+  .inputValidator(z.object({ bio: z.string().max(500) }))
   .handler(async ({ data }) => {
-    const doctor = await db.query.doctors.findFirst({
-      where: eq(doctors.userId, data.userId),
-    });
-    if (!doctor) throw new Error("No se encontró perfil de médico");
-    await db.update(doctors).set({ bio: data.bio }).where(eq(doctors.id, doctor.id));
+    const { doctorId } = await requireDoctor();
+    await db.update(doctors).set({ bio: data.bio }).where(eq(doctors.id, doctorId));
     return { success: true };
   });
 
-export const getDoctorIdByUserId = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ userId: z.string() }))
-  .handler(async ({ data }) => {
-    const doctor = await db.query.doctors.findFirst({
-      where: eq(doctors.userId, data.userId),
-    });
-    return doctor?.id ?? null;
-  });
+export const getDoctorIdByUserId = createServerFn({ method: "POST" }).handler(async () => {
+  const { doctorId } = await requireDoctor();
+  return doctorId;
+});
 
 export const updateMyWhatsappPreference = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      userId: z.string(),
       enabled: z.boolean(),
     }),
   )
   .handler(async ({ data }) => {
-    const existing = await db.query.doctors.findFirst({
-      where: eq(doctors.userId, data.userId),
-    });
-    if (!existing) {
-      await db.insert(doctors).values({
-        userId: data.userId,
-        whatsappNotifications: data.enabled,
-      });
-    } else {
-      await db
-        .update(doctors)
-        .set({ whatsappNotifications: data.enabled })
-        .where(eq(doctors.id, existing.id));
-    }
+    const { doctorId } = await requireDoctor();
+    await db
+      .update(doctors)
+      .set({ whatsappNotifications: data.enabled })
+      .where(eq(doctors.id, doctorId));
     return { success: true };
   });

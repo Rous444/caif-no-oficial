@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { medicalRecords, doctors, patients, user } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { requireDoctor, AuthError } from "./_guards";
 
 export const uploadMedicalRecord = createServerFn({ method: "POST" })
   .inputValidator(
@@ -19,6 +20,8 @@ export const uploadMedicalRecord = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    const { doctorId } = await requireDoctor();
+    if (data.doctorId !== doctorId) throw new AuthError("FORBIDDEN", "No autorizado");
     const lastVersion = await db
       .select({ maxVersion: sql<number>`coalesce(max(${medicalRecords.recordVersion}), 0)` })
       .from(medicalRecords)
@@ -48,6 +51,8 @@ export const uploadMedicalRecord = createServerFn({ method: "POST" })
 export const getMyPatientRecords = createServerFn({ method: "POST" })
   .inputValidator(z.object({ doctorId: z.string().uuid() }))
   .handler(async ({ data }) => {
+    const { doctorId } = await requireDoctor();
+    if (data.doctorId !== doctorId) throw new AuthError("FORBIDDEN", "No autorizado");
     const rows = await db
       .select({
         id: medicalRecords.id,
@@ -90,17 +95,32 @@ export const getMyPatientRecords = createServerFn({ method: "POST" })
 export const getRecordFile = createServerFn({ method: "POST" })
   .inputValidator(z.object({ recordId: z.string().uuid() }))
   .handler(async ({ data }) => {
+    const { doctorId } = await requireDoctor();
     const record = await db.query.medicalRecords.findFirst({
       where: eq(medicalRecords.id, data.recordId),
-      columns: { fileData: true, fileName: true, fileType: true, recordVersion: true },
+      columns: {
+        doctorId: true,
+        fileData: true,
+        fileName: true,
+        fileType: true,
+        recordVersion: true,
+      },
     });
     if (!record) throw new Error("Ficha médica no encontrada");
+    if (record.doctorId !== doctorId) throw new AuthError("FORBIDDEN", "No autorizado");
     return record;
   });
 
 export const deleteMedicalRecord = createServerFn({ method: "POST" })
   .inputValidator(z.object({ recordId: z.string().uuid() }))
   .handler(async ({ data }) => {
+    const { doctorId } = await requireDoctor();
+    const record = await db.query.medicalRecords.findFirst({
+      where: eq(medicalRecords.id, data.recordId),
+      columns: { doctorId: true },
+    });
+    if (!record) throw new Error("Ficha médica no encontrada");
+    if (record.doctorId !== doctorId) throw new AuthError("FORBIDDEN", "No autorizado");
     await db.delete(medicalRecords).where(eq(medicalRecords.id, data.recordId));
     return { success: true };
   });
