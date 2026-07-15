@@ -27,6 +27,7 @@ import { getActiveSpecialties } from "@/lib/api/specialties.functions";
 import { getDoctorsBySpecialty } from "@/lib/api/admin-doctors.functions";
 import { getDoctorSchedule } from "@/lib/api/doctor-schedule.functions";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { generateSlots } from "@/lib/slots";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Mi panel · CAIF" }] }),
   component: Dashboard,
@@ -234,20 +235,14 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   const slots = (() => {
     // Return empty early if prerequisites missing or still loading
-    if (!date || !schedules || !dayAppts)
-      return [] as { value: string; label: string; available: boolean }[];
+    if (!date || !schedules || !dayAppts) return [];
 
     // Parse selected date
     const [yr, mo, dy] = date.split("-").map(Number);
     const targetDate = new Date(yr, mo - 1, dy);
-    const weekday = (targetDate.getDay() + 6) % 7;
-
-    // All schedule blocks for that weekday (support multiple blocks)
-    const blocks = (schedules ?? []).filter((s: any) => s.weekday === weekday);
-    if (blocks.length === 0) return [];
 
     // Build occupied ranges as Date pairs (ignore canceled)
-    const occupiedRanges = (dayAppts ?? [])
+    const occupied = (dayAppts ?? [])
       .filter((a: any) => a.scheduledAt && a.status !== "cancelado")
       .map((a: any) => {
         const apptDate = new Date(a.scheduledAt);
@@ -265,51 +260,13 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
         return { start, end };
       });
 
-    const now = new Date();
-    const isToday = now.getFullYear() === yr && now.getMonth() === mo - 1 && now.getDate() === dy;
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const out: { value: string; label: string; available: boolean }[] = [];
-
-    // Debug: log blocks and occupied ranges to browser console to help debugging
-    try {
-      // eslint-disable-next-line no-console
-      console.debug("slot-gen: blocks", blocks);
-      // eslint-disable-next-line no-console
-      console.debug("slot-gen: occupiedRanges", occupiedRanges);
-    } catch {}
-
-    const slotMs = SLOT_MIN * 60_000;
-    const overlaps = (s: Date, e: Date, r: { start: Date; end: Date }) => s < r.end && e > r.start;
-
-    for (const b of blocks) {
-      const [sh, sm] = String(b.startTime).split(":").map(Number);
-      const [eh, em] = String(b.endTime).split(":").map(Number);
-      let cursor = new Date(yr, mo - 1, dy, sh, sm, 0, 0).getTime();
-      const blockEnd = new Date(yr, mo - 1, dy, eh, em, 0, 0).getTime();
-
-      while (cursor + slotMs <= blockEnd) {
-        const slotStart = new Date(cursor);
-        const slotEnd = new Date(cursor + slotMs);
-
-        if (isToday && slotStart.getHours() * 60 + slotStart.getMinutes() <= currentMinutes) {
-          cursor += slotMs;
-          continue;
-        }
-
-        const isTaken = occupiedRanges.some((r) => overlaps(slotStart, slotEnd, r));
-
-        out.push({
-          value: slotStart.toISOString(),
-          label: slotStart.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
-          available: !isTaken,
-        });
-
-        cursor += slotMs;
-      }
-    }
-
-    return out;
+    return generateSlots({
+      date: targetDate,
+      schedule: schedules ?? [],
+      occupied,
+      slotMinutes: SLOT_MIN,
+      now: new Date(),
+    });
   })();
 
   const submit = async () => {

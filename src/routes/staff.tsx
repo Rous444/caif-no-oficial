@@ -59,6 +59,7 @@ import { getAllDoctors } from "@/lib/api/admin-doctors.functions";
 import { getDoctorSchedule } from "@/lib/api/doctor-schedule.functions";
 import { getAllSpecialties } from "@/lib/api/specialties.functions";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { generateSlots, type Slot } from "@/lib/slots";
 export const Route = createFileRoute("/staff")({
   head: () => ({ meta: [{ title: "Agenda · CAIF" }] }),
   component: StaffPanel,
@@ -634,12 +635,13 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
       user: { firstName: string; lastName: string } | null;
       specialty: { name: string; id: string } | null;
       specialties: { specialty: { name: string; id: string } }[];
+      slotMinutes: number | null;
     }[]
   >([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [selectedSpecialtyId, setSelectedSpecialtyId] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [slots, setSlots] = useState<{ value: string; available: boolean }[]>([]);
+  const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -734,46 +736,36 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
         const schedule = await getDoctorSchedule({ data: { doctorId: selectedDoctorId } });
         const [yr, mo, dy] = selectedDate.split("-").map(Number);
         const date = new Date(yr, mo - 1, dy);
-        const weekday = (date.getDay() + 6) % 7;
-        const blocks = (schedule ?? []).filter((s: { weekday: number }) => s.weekday === weekday);
-        if (blocks.length === 0) {
-          setSlots([]);
-          return;
-        }
+        const selectedDoctor = doctors.find((d) => d.id === selectedDoctorId);
+        const slotMinutes = selectedDoctor?.slotMinutes ?? 30;
 
         const existing = await getDayAppointments({
           data: { doctorId: selectedDoctorId, date: selectedDate },
         });
-        const occupiedRanges = (existing ?? [])
+        const occupied = (existing ?? [])
           .filter((a: any) => a.scheduledAt && a.status !== "cancelado")
           .map((a: any) => {
-            const apptDate = new Date(a.scheduledAt);
-            const startMin = apptDate.getHours() * 60 + apptDate.getMinutes();
-            const dur = Number(a.durationMinutes ?? 30) || 30;
-            return { start: startMin, end: startMin + dur };
+            const start = new Date(a.scheduledAt);
+            const dur = Number(a.durationMinutes ?? slotMinutes) || slotMinutes;
+            const end = new Date(start.getTime() + dur * 60_000);
+            return { start, end };
           });
 
-        const generated: { value: string; available: boolean }[] = [];
-        for (const b of blocks) {
-          const [sh, sm] = String(b.startTime).split(":").map(Number);
-          const [eh, em] = String(b.endTime).split(":").map(Number);
-          const blockStartMin = sh * 60 + sm;
-          const blockEndMin = eh * 60 + em;
-          for (let m = blockStartMin; m + 30 <= blockEndMin; m += 30) {
-            const slotEnd = m + 30;
-            const isTaken = occupiedRanges.some((r) => m < r.end && slotEnd > r.start);
-            const hh = String(Math.floor(m / 60)).padStart(2, "0");
-            const mm = String(m % 60).padStart(2, "0");
-            generated.push({ value: `${hh}:${mm}`, available: !isTaken });
-          }
-        }
-        setSlots(generated);
+        setSlots(
+          generateSlots({
+            date,
+            schedule: schedule ?? [],
+            occupied,
+            slotMinutes,
+            now: new Date(),
+          }),
+        );
       } catch {
         setSlots([]);
       }
     };
     loadSlots();
-  }, [selectedDoctorId, selectedDate]);
+  }, [selectedDoctorId, selectedDate, doctors]);
 
   const handleCreatePatient = async () => {
     try {
@@ -798,17 +790,16 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
       return;
     setSubmitting(true);
     try {
-      const [sh, sm] = selectedSlot.split(":").map(Number);
-      const [yr2, mo2, dy2] = selectedDate.split("-").map(Number);
-      const scheduledAt = new Date(yr2, mo2 - 1, dy2);
-      scheduledAt.setHours(sh, sm, 0, 0);
+      const scheduledAt = new Date(selectedSlot);
+      const selectedDoctor = doctors.find((d) => d.id === selectedDoctorId);
+      const slotMinutes = selectedDoctor?.slotMinutes ?? 30;
       await bookAppointment({
         data: {
           patientId: selectedPatient.id,
           doctorId: selectedDoctorId,
           specialtyId: selectedSpecialtyId,
           scheduledAt: scheduledAt.toISOString(),
-          durationMinutes: 30,
+          durationMinutes: slotMinutes,
         },
       });
       toast.success("Turno creado");
@@ -1097,7 +1088,7 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
                             : "border-border hover:border-primary"
                         }`}
                       >
-                        {s.value}
+                        {s.label}
                       </button>
                     ) : (
                       <div
