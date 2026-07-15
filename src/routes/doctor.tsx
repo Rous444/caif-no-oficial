@@ -40,6 +40,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -294,7 +304,11 @@ function AgendaTab({ userId }: { userId: string }) {
     [appts, range],
   );
 
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
   const updateStatus = async (id: string, status: DoctorAppt["status"]) => {
+    if (pendingIds.has(id)) return;
+    setPendingIds((prev) => new Set(prev).add(id));
     try {
       await updateAppointmentStatus({ data: { appointmentId: id, status } });
       toast.success("Turno actualizado");
@@ -302,6 +316,12 @@ function AgendaTab({ userId }: { userId: string }) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al actualizar el turno");
       refetch();
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -358,7 +378,12 @@ function AgendaTab({ userId }: { userId: string }) {
           Cargando agenda...
         </div>
       ) : view === "day" ? (
-        <DayView appts={filtered} onUpdateStatus={updateStatus} onChanged={refetch} />
+        <DayView
+          appts={filtered}
+          onUpdateStatus={updateStatus}
+          onChanged={refetch}
+          pendingIds={pendingIds}
+        />
       ) : (
         <WeekView
           from={startOfWeek(cursor)}
@@ -377,10 +402,12 @@ function DayView({
   appts,
   onUpdateStatus,
   onChanged,
+  pendingIds,
 }: {
   appts: DoctorAppt[];
   onUpdateStatus: (id: string, status: DoctorAppt["status"]) => void;
   onChanged: () => void;
+  pendingIds: Set<string>;
 }) {
   const [patientSearch, setPatientSearch] = useState("");
   const [historyPatient, setHistoryPatient] = useState<DoctorAppt["patient"] | null>(null);
@@ -427,6 +454,7 @@ function DayView({
               onUpdateStatus={onUpdateStatus}
               onChanged={onChanged}
               onShowHistory={(p) => setHistoryPatient(p)}
+              pending={pendingIds.has(a.id)}
             />
           ))}
         </div>
@@ -564,14 +592,18 @@ function ApptCard({
   onUpdateStatus,
   onChanged,
   onShowHistory,
+  pending,
 }: {
   appt: DoctorAppt;
   onUpdateStatus: (id: string, status: DoctorAppt["status"]) => void;
   onChanged: () => void;
   onShowHistory?: (patient: DoctorAppt["patient"]) => void;
+  pending: boolean;
 }) {
   const date = new Date(appt.scheduledAt);
+  const isPast = date.getTime() < Date.now();
   const [reschedOpen, setReschedOpen] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const patientName = appt.patient
     ? `${appt.patient.firstName} ${appt.patient.lastName}`
     : "Paciente";
@@ -625,6 +657,7 @@ function ApptCard({
           <Button
             size="sm"
             onClick={() => onUpdateStatus(appt.id, "confirmado")}
+            disabled={pending}
             className="min-h-[44px]"
           >
             <Check className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Confirmar</span>
@@ -635,6 +668,7 @@ function ApptCard({
             size="sm"
             variant="outline"
             onClick={() => setReschedOpen(true)}
+            disabled={pending}
             className="min-h-[44px]"
           >
             <span className="hidden sm:inline">Reprogramar</span>
@@ -646,6 +680,7 @@ function ApptCard({
             size="sm"
             variant="outline"
             onClick={() => onUpdateStatus(appt.id, "ausente")}
+            disabled={pending}
             className="min-h-[44px]"
           >
             <span className="hidden sm:inline">Marcar ausente</span>
@@ -656,10 +691,23 @@ function ApptCard({
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => onUpdateStatus(appt.id, "cancelado")}
+            onClick={() => setConfirmCancelOpen(true)}
+            disabled={pending}
             className="min-h-[44px]"
           >
             <X className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Cancelar</span>
+          </Button>
+        )}
+        {appt.status === "cancelado" && !isPast && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onUpdateStatus(appt.id, "pendiente")}
+            disabled={pending}
+            className="min-h-[44px]"
+          >
+            <span className="hidden sm:inline">Reactivar</span>
+            <span className="sm:hidden">React.</span>
           </Button>
         )}
       </div>
@@ -673,6 +721,28 @@ function ApptCard({
           onChanged();
         }}
       />
+
+      <AlertDialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar este turno?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {fmtTime(date)} · {patientName}. El turno queda cancelado y el horario vuelve a
+              estar disponible. Se puede reactivar después, pero solo si nadie más lo reservó
+              mientras tanto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => onUpdateStatus(appt.id, "cancelado")}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sí, cancelar turno
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

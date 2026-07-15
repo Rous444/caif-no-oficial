@@ -36,6 +36,10 @@ describe("isValidTransition", () => {
     expect(isValidTransition("cancelado", "confirmado")).toBe(false);
   });
 
+  it("allows cancelado -> pendiente (reactivar un turno cancelado por error)", () => {
+    expect(isValidTransition("cancelado", "pendiente")).toBe(true);
+  });
+
   it("rejects pendiente -> ausente (debe pasar por confirmado)", () => {
     expect(isValidTransition("pendiente", "ausente")).toBe(false);
   });

@@ -5,10 +5,13 @@ export type AppointmentStatus = "pendiente" | "confirmado" | "cancelado" | "comp
 
 // "completado" nunca es una transición manual: llega únicamente por la
 // regla de auto-asistido lazy (deriveDisplayStatus), nunca vía click/API.
+// "cancelado -> pendiente" existe para poder "descancelar" un turno cancelado
+// por error (misclick); vuelve a "pendiente" (no a "confirmado") porque
+// requiere revalidar que el horario siga libre y volver a confirmarse.
 const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   pendiente: ["confirmado", "cancelado"],
   confirmado: ["ausente", "cancelado"],
-  cancelado: [],
+  cancelado: ["pendiente"],
   completado: [],
   ausente: [],
 };

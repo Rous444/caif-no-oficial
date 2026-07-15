@@ -14,6 +14,7 @@ import {
   ToggleRight,
   KeyRound,
   Smartphone,
+  CalendarX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,7 @@ import {
   deleteUser,
   resetUserPassword,
 } from "@/lib/api/admin-users.functions";
+import { cancelAllPatientAppointments } from "@/lib/api/appointments.functions";
 import { GalleryTab } from "@/components/admin/GalleryTab";
 import { WhatsAppTab } from "@/components/admin/WhatsAppTab";
 
@@ -148,6 +150,11 @@ function UsersTab() {
   const [resetPwOpen, setResetPwOpen] = useState(false);
   const [resetPwUserId, setResetPwUserId] = useState<string | null>(null);
   const [resetPwValue, setResetPwValue] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [cancelAllTarget, setCancelAllTarget] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
   const { data: users } = useQuery({
     queryKey: ["admin-users", search, roleFilter],
@@ -170,10 +177,35 @@ function UsersTab() {
   });
 
   const removeUser = useMutation({
-    mutationFn: (userId: string) => deleteUser({ data: { userId } }),
-    onSuccess: () => {
+    mutationFn: ({ userId, confirmName }: { userId: string; confirmName: string }) =>
+      deleteUser({ data: { userId, confirmName } }),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      toast.success("Usuario eliminado");
+      toast.success(
+        result.softDeleted
+          ? "El usuario tiene turnos asociados: se desactivó en vez de eliminarse."
+          : "Usuario eliminado",
+      );
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Error al eliminar el usuario");
+    },
+  });
+
+  const cancelAllAppts = useMutation({
+    mutationFn: (patientId: string) => cancelAllPatientAppointments({ data: { patientId } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.cancelledCount > 0
+          ? `Se cancelaron ${result.cancelledCount} turno(s) del paciente.`
+          : "El paciente no tenía turnos activos.",
+      );
+      setCancelAllTarget(null);
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Error al cancelar los turnos");
     },
   });
 
@@ -255,6 +287,8 @@ function UsersTab() {
                       size="sm"
                       variant="outline"
                       onClick={() => toggleActive.mutate({ userId: u.id, isActive: !u.isActive })}
+                      disabled={u.role === "admin"}
+                      title={u.role === "admin" ? "No se puede desactivar un administrador" : undefined}
                       className="min-h-[44px] min-w-[44px]"
                     >
                       {u.isActive ? (
@@ -263,11 +297,26 @@ function UsersTab() {
                         <ToggleRight className="h-4 w-4" />
                       )}
                     </Button>
+                    {u.role === "paciente" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setCancelAllTarget({ id: u.id, name: `${u.firstName} ${u.lastName}` })
+                        }
+                        title="Cancelar todos los turnos de este paciente"
+                        className="min-h-[44px] min-w-[44px]"
+                      >
+                        <CalendarX className="h-4 w-4" />
+                      </Button>
+                    )}
                     {u.role !== "admin" && (
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => removeUser.mutate(u.id)}
+                        onClick={() =>
+                          setDeleteTarget({ id: u.id, name: `${u.firstName} ${u.lastName}` })
+                        }
                         className="min-h-[44px] min-w-[44px]"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -318,6 +367,8 @@ function UsersTab() {
                   size="sm"
                   variant="outline"
                   onClick={() => toggleActive.mutate({ userId: u.id, isActive: !u.isActive })}
+                  disabled={u.role === "admin"}
+                  title={u.role === "admin" ? "No se puede desactivar un administrador" : undefined}
                   className="min-h-[44px] min-w-[44px]"
                 >
                   {u.isActive ? (
@@ -338,11 +389,26 @@ function UsersTab() {
                 >
                   <KeyRound className="h-4 w-4" />
                 </Button>
+                {u.role === "paciente" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setCancelAllTarget({ id: u.id, name: `${u.firstName} ${u.lastName}` })
+                    }
+                    title="Cancelar todos los turnos de este paciente"
+                    className="min-h-[44px] min-w-[44px]"
+                  >
+                    <CalendarX className="h-4 w-4" />
+                  </Button>
+                )}
                 {u.role !== "admin" && (
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => removeUser.mutate(u.id)}
+                    onClick={() =>
+                      setDeleteTarget({ id: u.id, name: `${u.firstName} ${u.lastName}` })
+                    }
                     className="min-h-[44px] min-w-[44px]"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -390,6 +456,96 @@ function UsersTab() {
               disabled={resetPw.isPending || resetPwValue.length < 6}
             >
               {resetPw.isPending ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v) {
+            setDeleteTarget(null);
+            setDeleteConfirmText("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar usuario</DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer. Si el usuario tiene turnos asociados, se
+              desactivará en vez de eliminarse para no perder el historial.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm">
+              Para confirmar, escribí el nombre completo{" "}
+              <span className="font-semibold">{deleteTarget?.name}</span> exactamente como
+              aparece:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={deleteTarget?.name}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteConfirmText("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                !deleteTarget ||
+                deleteConfirmText.trim() !== deleteTarget.name ||
+                removeUser.isPending
+              }
+              onClick={() => {
+                if (!deleteTarget) return;
+                removeUser.mutate({ userId: deleteTarget.id, confirmName: deleteConfirmText });
+              }}
+            >
+              {removeUser.isPending ? "Eliminando..." : "Eliminar definitivamente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!cancelAllTarget}
+        onOpenChange={(v) => {
+          if (!v) setCancelAllTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar todos los turnos</DialogTitle>
+            <DialogDescription>
+              Se cancelarán todos los turnos pendientes y confirmados de{" "}
+              <span className="font-semibold">{cancelAllTarget?.name}</span>. Útil ante cuentas que
+              reservaron turnos de forma abusiva. Los turnos ya completados no se tocan y esta
+              acción no borra el historial, solo cancela.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelAllTarget(null)}>
+              Volver
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={cancelAllAppts.isPending}
+              onClick={() => {
+                if (!cancelAllTarget) return;
+                cancelAllAppts.mutate(cancelAllTarget.id);
+              }}
+            >
+              {cancelAllAppts.isPending ? "Cancelando..." : "Cancelar todos los turnos"}
             </Button>
           </DialogFooter>
         </DialogContent>

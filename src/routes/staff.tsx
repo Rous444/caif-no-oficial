@@ -33,8 +33,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
-import { isSoftlocked } from "@/lib/softlock";
 
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -114,16 +123,23 @@ function StaffPanel() {
     refetch,
     isLoading,
   } = useQuery({
-    queryKey: ["staff-appts", range.from.toISOString()],
+    queryKey: ["staff-appts", range.from.toISOString(), range.to.toISOString()],
     enabled: !!user && isStaff,
     queryFn: async () => {
       return (await getStaffAppointments({
-        data: { date: range.from.toISOString().slice(0, 10) },
+        data: {
+          date: range.from.toISOString().slice(0, 10),
+          dateTo: range.to.toISOString().slice(0, 10),
+        },
       })) as StaffAppt[];
     },
   });
 
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
   const updateStatus = async (id: string, status: StaffAppt["status"]) => {
+    if (pendingIds.has(id)) return;
+    setPendingIds((prev) => new Set(prev).add(id));
     try {
       await updateAppointmentStatus({ data: { appointmentId: id, status } });
       toast.success("Turno actualizado");
@@ -131,6 +147,12 @@ function StaffPanel() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al actualizar el turno");
       refetch();
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -211,7 +233,12 @@ function StaffPanel() {
           Cargando agenda...
         </div>
       ) : view === "day" ? (
-        <DayView appts={appts ?? []} onUpdateStatus={updateStatus} onChanged={refetch} />
+        <DayView
+          appts={appts ?? []}
+          onUpdateStatus={updateStatus}
+          onChanged={refetch}
+          pendingIds={pendingIds}
+        />
       ) : (
         <WeekView
           from={startOfWeek(cursor)}
@@ -233,10 +260,12 @@ function DayView({
   appts,
   onUpdateStatus,
   onChanged,
+  pendingIds,
 }: {
   appts: StaffAppt[];
   onUpdateStatus: (id: string, status: StaffAppt["status"]) => void;
   onChanged: () => void;
+  pendingIds: Set<string>;
 }) {
   if (appts.length === 0) {
     return (
@@ -248,7 +277,13 @@ function DayView({
   return (
     <div className="space-y-3">
       {appts.map((a) => (
-        <ApptCard key={a.id} appt={a} onUpdateStatus={onUpdateStatus} onChanged={onChanged} />
+        <ApptCard
+          key={a.id}
+          appt={a}
+          onUpdateStatus={onUpdateStatus}
+          onChanged={onChanged}
+          pending={pendingIds.has(a.id)}
+        />
       ))}
     </div>
   );
@@ -339,13 +374,17 @@ function ApptCard({
   appt,
   onUpdateStatus,
   onChanged,
+  pending,
 }: {
   appt: StaffAppt;
   onUpdateStatus: (id: string, status: StaffAppt["status"]) => void;
   onChanged: () => void;
+  pending: boolean;
 }) {
   const date = new Date(appt.scheduledAt);
+  const isPast = date.getTime() < Date.now();
   const [reschedOpen, setReschedOpen] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const patientName = appt.patient
     ? `${appt.patient.firstName} ${appt.patient.lastName}`
     : "Paciente";
@@ -399,6 +438,7 @@ function ApptCard({
           <Button
             size="sm"
             onClick={() => onUpdateStatus(appt.id, "confirmado")}
+            disabled={pending}
             className="min-h-[44px]"
           >
             <span className="hidden sm:inline">Confirmar</span>
@@ -410,6 +450,7 @@ function ApptCard({
             size="sm"
             variant="outline"
             onClick={() => setReschedOpen(true)}
+            disabled={pending}
             className="min-h-[44px]"
           >
             <span className="hidden sm:inline">Reprogramar</span>
@@ -420,11 +461,24 @@ function ApptCard({
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => onUpdateStatus(appt.id, "cancelado")}
+            onClick={() => setConfirmCancelOpen(true)}
+            disabled={pending}
             className="min-h-[44px]"
           >
             <span className="hidden sm:inline">Cancelar</span>
             <span className="sm:hidden">Canc.</span>
+          </Button>
+        )}
+        {appt.status === "cancelado" && !isPast && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onUpdateStatus(appt.id, "pendiente")}
+            disabled={pending}
+            className="min-h-[44px]"
+          >
+            <span className="hidden sm:inline">Reactivar</span>
+            <span className="sm:hidden">React.</span>
           </Button>
         )}
       </div>
@@ -438,6 +492,28 @@ function ApptCard({
           onChanged();
         }}
       />
+
+      <AlertDialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar este turno?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {fmtTime(date)} · {patientName} con {docName}. El turno queda cancelado y el horario
+              vuelve a estar disponible. Se puede reactivar después, pero solo si nadie más lo
+              reservó mientras tanto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => onUpdateStatus(appt.id, "cancelado")}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sí, cancelar turno
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -750,7 +826,7 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button disabled={isSoftlocked()}>
+        <Button>
           <Plus className="mr-2 h-4 w-4" />
           Nuevo turno
         </Button>

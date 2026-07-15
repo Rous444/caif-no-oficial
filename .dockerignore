@@ -8,6 +8,8 @@ dist-ssr
 .nitro
 .tanstack
 .wrangler
+.wwebjs_cache
+.wwebjs_auth
 .vscode
 .idea
 *.log

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { hashPassword } from "@/lib/password";
 import { sendWelcomeEmail } from "@/lib/email";
 import { db } from "@/db";
-import { user, account, patients, doctors, doctorSpecialties } from "@/db/schema";
+import { user, account, patients, doctors, doctorSpecialties, appointments } from "@/db/schema";
 import { eq, and, or, ilike } from "drizzle-orm";
 import { getUserByEmail, getAllUsers } from "./db-helpers";
 import { requireSession, requireRole, AuthError } from "./_guards";
@@ -203,6 +203,17 @@ export const updateUserActive = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireRole("admin");
+
+    if (!data.isActive) {
+      const target = await db.query.user.findFirst({
+        where: eq(user.id, data.userId),
+        columns: { role: true },
+      });
+      if (target?.role === "admin") {
+        throw new Error("No se puede desactivar un usuario administrador");
+      }
+    }
+
     await db
       .update(user)
       .set({ isActive: data.isActive, updatedAt: new Date() })
@@ -212,17 +223,52 @@ export const updateUserActive = createServerFn({ method: "POST" })
   });
 
 export const deleteUser = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ userId: z.string() }))
+  .inputValidator(z.object({ userId: z.string(), confirmName: z.string() }))
   .handler(async ({ data }) => {
     await requireRole("admin");
     const target = await db.query.user.findFirst({
       where: eq(user.id, data.userId),
-      columns: { role: true },
+      columns: { role: true, firstName: true, lastName: true },
     });
     if (!target) throw new Error("Usuario no encontrado");
     if (target.role === "admin") throw new Error("No se puede eliminar un usuario administrador");
+
+    const expectedName = `${target.firstName} ${target.lastName}`.trim();
+    if (data.confirmName.trim() !== expectedName) {
+      throw new Error("El nombre ingresado no coincide. No se eliminó el usuario.");
+    }
+
+    const hasAppointmentsAsPatient = await db.query.appointments.findFirst({
+      where: eq(appointments.patientId, data.userId),
+      columns: { id: true },
+    });
+
+    let hasAppointmentsAsDoctor = false;
+    if (target.role === "medico") {
+      const doctor = await db.query.doctors.findFirst({
+        where: eq(doctors.userId, data.userId),
+        columns: { id: true },
+      });
+      if (doctor) {
+        const doctorAppt = await db.query.appointments.findFirst({
+          where: eq(appointments.doctorId, doctor.id),
+          columns: { id: true },
+        });
+        hasAppointmentsAsDoctor = !!doctorAppt;
+      }
+    }
+
+    if (hasAppointmentsAsPatient || hasAppointmentsAsDoctor) {
+      // Tiene turnos asociados: se desactiva en vez de borrar para no perder el historial ni violar FKs.
+      await db
+        .update(user)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(user.id, data.userId));
+      return { success: true, softDeleted: true };
+    }
+
     await db.delete(user).where(eq(user.id, data.userId));
-    return { success: true };
+    return { success: true, softDeleted: false };
   });
 
 export const createPatientRecord = createServerFn({ method: "POST" })

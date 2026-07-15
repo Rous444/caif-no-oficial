@@ -340,13 +340,16 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
   };
 
   if (!open) {
+    if (isSoftlocked()) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          <Clock className="mr-1.5 inline h-4 w-4 align-text-bottom" />
+          El sistema abre a las 08:00. Volvé a intentar dentro del horario de atención.
+        </p>
+      );
+    }
     return (
-      <Button
-        onClick={() => setOpen(true)}
-        size="lg"
-        className="shadow-elegant"
-        disabled={isSoftlocked()}
-      >
+      <Button onClick={() => setOpen(true)} size="lg" className="shadow-elegant">
         <Plus className="mr-2 h-4 w-4" /> Solicitar turno
       </Button>
     );

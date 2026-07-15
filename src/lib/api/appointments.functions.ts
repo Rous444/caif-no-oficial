@@ -95,6 +95,7 @@ export const getStaffAppointments = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       date: z.string().optional(),
+      dateTo: z.string().optional(),
       status: z.string().optional(),
     }),
   )
@@ -106,9 +107,16 @@ export const getStaffAppointments = createServerFn({ method: "POST" })
       // Parse YYYY-MM-DD from date input and create dates in local timezone
       const [year, month, day] = data.date.split("-").map(Number);
       const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
-      const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
       conditions.push(gte(appointments.scheduledAt, dayStart));
-      conditions.push(lt(appointments.scheduledAt, dayEnd));
+
+      if (data.dateTo) {
+        const [toYear, toMonth, toDay] = data.dateTo.split("-").map(Number);
+        const rangeEnd = new Date(toYear, toMonth - 1, toDay, 0, 0, 0, 0);
+        conditions.push(lt(appointments.scheduledAt, rangeEnd));
+      } else {
+        const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
+        conditions.push(lt(appointments.scheduledAt, dayEnd));
+      }
     }
     if (data.status) {
       conditions.push(
@@ -148,7 +156,10 @@ export const bookAppointment = createServerFn({ method: "POST" })
       await requireRole("recepcionista", "medico", "admin");
     }
 
-    throwIfSoftlocked();
+    // El softlock solo aplica a pacientes reservando para sí mismos; el staff opera de noche.
+    if (session.user.role === "paciente") {
+      throwIfSoftlocked();
+    }
 
     const scheduledDate = new Date(data.scheduledAt);
     const endDate = new Date(scheduledDate.getTime() + data.durationMinutes * 60000);
@@ -271,8 +282,8 @@ export const rescheduleAppointment = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    // Solo staff (médico/recepción/admin) puede reprogramar; el softlock es exclusivo de pacientes.
     const { appointment } = await requireAppointmentStaffAccess(data.appointmentId);
-    throwIfSoftlocked();
 
     const scheduledDate = new Date(data.scheduledAt);
     const endDate = new Date(scheduledDate.getTime() + data.durationMinutes * 60000);
@@ -347,6 +358,45 @@ export const updateAppointmentStatus = createServerFn({ method: "POST" })
       );
     }
 
+    // Reactivar un turno cancelado ("descancelar") puede chocar con otro turno
+    // que haya ocupado ese mismo horario mientras tanto: lo verificamos antes
+    // de reactivar, no solo confiar en el estado previo.
+    if (currentStatus === "cancelado" && data.status === "pendiente") {
+      const scheduledDate = new Date(appointment.scheduledAt);
+
+      if (scheduledDate.getTime() < Date.now()) {
+        throw new InvalidTransitionError(
+          "No se puede reactivar un turno cuyo horario ya pasó.",
+        );
+      }
+
+      const endDate = new Date(
+        scheduledDate.getTime() + (appointment.durationMinutes ?? 30) * 60000,
+      );
+      const { dayStart, dayEnd } = dayBounds(scheduledDate);
+      const others = await db.query.appointments.findMany({
+        where: and(
+          eq(appointments.doctorId, appointment.doctorId),
+          ne(appointments.id, appointment.id),
+          ne(appointments.status, "cancelado"),
+          gte(appointments.scheduledAt, dayStart),
+          lt(appointments.scheduledAt, dayEnd),
+        ),
+      });
+      const taken = others.some((other) => {
+        const otherStart = new Date(other.scheduledAt);
+        const otherEnd = new Date(
+          otherStart.getTime() + (other.durationMinutes ?? 30) * 60000,
+        );
+        return rangesOverlap(scheduledDate, endDate, otherStart, otherEnd);
+      });
+      if (taken) {
+        throw new SlotTakenError(
+          "No se puede reactivar: otro turno ya ocupa ese horario.",
+        );
+      }
+    }
+
     const updated = await db
       .update(appointments)
       .set({ status: data.status, updatedAt: new Date() })
@@ -358,4 +408,28 @@ export const updateAppointmentStatus = createServerFn({ method: "POST" })
     }
 
     return { success: true };
+  });
+
+// Mitigación de abuso: un paciente (o cuenta maliciosa) puede reservar todos los
+// horarios disponibles de golpe. Esto permite a recepción/admin liberar de una
+// sola vez todo lo que ese paciente tiene reservado, sin borrar el historial
+// (se cancela, no se elimina la fila).
+export const cancelAllPatientAppointments = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ patientId: z.string() }))
+  .handler(async ({ data }) => {
+    await requireRole("recepcionista", "admin");
+
+    const updated = await db
+      .update(appointments)
+      .set({ status: "cancelado", updatedAt: new Date() })
+      .where(
+        and(
+          eq(appointments.patientId, data.patientId),
+          ne(appointments.status, "cancelado"),
+          ne(appointments.status, "completado"),
+        ),
+      )
+      .returning({ id: appointments.id });
+
+    return { success: true, cancelledCount: updated.length };
   });

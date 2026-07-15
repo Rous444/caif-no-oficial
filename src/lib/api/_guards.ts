@@ -18,6 +18,11 @@ export async function requireSession() {
   const request = getRequest();
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) throw new AuthError("UNAUTHENTICATED", "No autenticado");
+  // Defensa en profundidad: si la cuenta se desactivó después de emitida la sesión
+  // (el login ya la bloquea), cortamos igual cualquier operación server-side.
+  if ((session.user as { isActive?: boolean | null }).isActive === false) {
+    throw new AuthError("FORBIDDEN", "Esta cuenta está desactivada");
+  }
   return session;
 }
 

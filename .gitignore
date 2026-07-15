@@ -18,6 +18,8 @@ dist-ssr
 
 # WhatsApp session (whatsapp-web.js)
 whatsapp-session/
+.wwebjs_cache/
+.wwebjs_auth/
 
 # Wrangler / Cloudflare
 .wrangler/

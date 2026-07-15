@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware, APIError } from "better-auth/api";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 
 export const auth = betterAuth({
@@ -47,5 +49,23 @@ export const auth = betterAuth({
   pages: {
     signIn: "/login",
     signUp: "/register",
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === "/sign-in/email") {
+        const email = ctx.body?.email as string | undefined;
+        if (email) {
+          const existing = await db.query.user.findFirst({
+            where: eq(schema.user.email, email),
+            columns: { isActive: true },
+          });
+          if (existing && existing.isActive === false) {
+            throw new APIError("FORBIDDEN", {
+              message: "Esta cuenta está desactivada. Contactá al consultorio.",
+            });
+          }
+        }
+      }
+    }),
   },
 });
