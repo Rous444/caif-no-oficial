@@ -35,3 +35,4 @@ whatsapp-session/
 *.njsproj
 *.sln
 *.sw?
+.superpowers/
