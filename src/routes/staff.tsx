@@ -1,19 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Stethoscope,
-  User,
-  Building2,
-  Plus,
-  Search,
-  UserPlus,
-  Loader2,
-} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Plus, Search, UserPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,16 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 
 import { toast } from "sonner";
@@ -50,37 +28,28 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getStaffAppointments,
   updateAppointmentStatus,
-  rescheduleAppointment,
   bookAppointment,
   getDayAppointments,
 } from "@/lib/api/appointments.functions";
 import { searchPatients, createPatientByStaff } from "@/lib/api/admin-users.functions";
 import { getAllDoctors } from "@/lib/api/admin-doctors.functions";
+import { formatArPhone } from "@/lib/phone";
 import { getDoctorSchedule } from "@/lib/api/doctor-schedule.functions";
 import { getAllSpecialties } from "@/lib/api/specialties.functions";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { generateSlots, type Slot } from "@/lib/slots";
+import { toastError } from "@/lib/toastError";
+import { DayGrid } from "@/components/agenda/DayGrid";
+import { WeekView } from "@/components/agenda/WeekView";
+import { FreshnessIndicator } from "@/components/agenda/FreshnessIndicator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTabVisible } from "@/lib/useTabVisible";
+import type { AgendaAppt } from "@/components/agenda/status";
+
 export const Route = createFileRoute("/staff")({
   head: () => ({ meta: [{ title: "Agenda · CAIF" }] }),
   component: StaffPanel,
 });
-
-type StaffAppt = {
-  id: string;
-  scheduledAt: Date;
-  durationMinutes: number | null;
-  status: "pendiente" | "confirmado" | "cancelado" | "completado" | "ausente";
-  displayStatus?: "pendiente" | "confirmado" | "cancelado" | "completado" | "ausente";
-  notes: string | null;
-  doctor: {
-    id: string;
-    user: { id: string; firstName: string; lastName: string; name: string | null } | null;
-    specialty: { name: string } | null;
-    insuranceCompanies: string[] | null;
-  } | null;
-  specialty: { name: string } | null;
-  patient: { firstName: string; lastName: string; email: string; phone: string } | null;
-};
 
 function startOfDay(d: Date) {
   const x = new Date(d);
@@ -119,42 +88,68 @@ function StaffPanel() {
     return { from, to: addDays(from, 7) };
   }, [view, cursor]);
 
+  const isTabVisible = useTabVisible();
+  const queryClient = useQueryClient();
+  const queryKey = ["staff-appts", range.from.toISOString(), range.to.toISOString()];
+
   const {
     data: appts,
     refetch,
     isLoading,
+    isFetching,
+    dataUpdatedAt,
   } = useQuery({
-    queryKey: ["staff-appts", range.from.toISOString(), range.to.toISOString()],
+    queryKey,
     enabled: !!user && isStaff,
+    refetchInterval: isTabVisible ? 45_000 : false,
     queryFn: async () => {
       return (await getStaffAppointments({
         data: {
           date: range.from.toISOString().slice(0, 10),
           dateTo: range.to.toISOString().slice(0, 10),
         },
-      })) as StaffAppt[];
+      })) as AgendaAppt[];
     },
   });
 
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
-  const updateStatus = async (id: string, status: StaffAppt["status"]) => {
+  const statusMutation = useMutation({
+    mutationFn: (vars: { id: string; status: AgendaAppt["status"] }) =>
+      updateAppointmentStatus({ data: { appointmentId: vars.id, status: vars.status } }),
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<AgendaAppt[]>(queryKey);
+      queryClient.setQueryData<AgendaAppt[]>(queryKey, (old) =>
+        old?.map((a) => (a.id === vars.id ? { ...a, status: vars.status } : a)),
+      );
+      return { previous };
+    },
+    onSuccess: () => toast.success("Turno actualizado"),
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKey, ctx.previous);
+      toastError(err, "Error al actualizar el turno");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  const updateStatus = (id: string, status: AgendaAppt["status"]) => {
     if (pendingIds.has(id)) return;
     setPendingIds((prev) => new Set(prev).add(id));
-    try {
-      await updateAppointmentStatus({ data: { appointmentId: id, status } });
-      toast.success("Turno actualizado");
-      refetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al actualizar el turno");
-      refetch();
-    } finally {
-      setPendingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }
+    statusMutation.mutate(
+      { id, status },
+      {
+        onSettled: () => {
+          setPendingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        },
+      },
+    );
   };
 
   if (loading || !user) {
@@ -200,7 +195,7 @@ function StaffPanel() {
         </Tabs>
       </div>
 
-      <div className="mb-6 flex items-center justify-between rounded-2xl border border-border bg-background p-4">
+      <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-border bg-background p-4">
         <Button variant="ghost" size="icon" onClick={() => move(-1)} aria-label="Anterior">
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -217,12 +212,19 @@ function StaffPanel() {
                   year: "numeric",
                 })}`}
           </div>
-          <button
-            className="mt-1 text-xs text-primary hover:underline"
-            onClick={() => setCursor(startOfDay(new Date()))}
-          >
-            Hoy
-          </button>
+          <div className="mt-1 flex items-center gap-3">
+            <button
+              className="text-xs text-primary hover:underline"
+              onClick={() => setCursor(startOfDay(new Date()))}
+            >
+              Hoy
+            </button>
+            <FreshnessIndicator
+              updatedAt={dataUpdatedAt}
+              isFetching={isFetching}
+              onRefresh={() => refetch()}
+            />
+          </div>
         </div>
         <Button variant="ghost" size="icon" onClick={() => move(1)} aria-label="Siguiente">
           <ChevronRight className="h-5 w-5" />
@@ -230,12 +232,15 @@ function StaffPanel() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-background p-10 text-center text-muted-foreground">
-          Cargando agenda...
+        <div className="space-y-2 rounded-2xl border border-border bg-background p-4">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-64 w-full" />
         </div>
       ) : view === "day" ? (
-        <DayView
+        <DayGrid
+          date={cursor}
           appts={appts ?? []}
+          variant="staff"
           onUpdateStatus={updateStatus}
           onChanged={refetch}
           pendingIds={pendingIds}
@@ -254,353 +259,6 @@ function StaffPanel() {
         <ProfileEditor />
       </section>
     </DashboardLayout>
-  );
-}
-
-function DayView({
-  appts,
-  onUpdateStatus,
-  onChanged,
-  pendingIds,
-}: {
-  appts: StaffAppt[];
-  onUpdateStatus: (id: string, status: StaffAppt["status"]) => void;
-  onChanged: () => void;
-  pendingIds: Set<string>;
-}) {
-  if (appts.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center text-muted-foreground">
-        No hay turnos para este día.
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-3">
-      {appts.map((a) => (
-        <ApptCard
-          key={a.id}
-          appt={a}
-          onUpdateStatus={onUpdateStatus}
-          onChanged={onChanged}
-          pending={pendingIds.has(a.id)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function WeekView({
-  from,
-  appts,
-  onPickDay,
-}: {
-  from: Date;
-  appts: StaffAppt[];
-  onPickDay: (d: Date) => void;
-}) {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(from, i));
-  const grouped = days.map((d) => {
-    const next = addDays(d, 1);
-    return {
-      day: d,
-      items: appts.filter((a) => {
-        const t = new Date(a.scheduledAt);
-        return t >= d && t < next;
-      }),
-    };
-  });
-
-  return (
-    <div className="grid gap-3 md:grid-cols-7">
-      {grouped.map(({ day, items }) => {
-        const isToday = day.toDateString() === new Date().toDateString();
-        return (
-          <button
-            key={day.toISOString()}
-            onClick={() => onPickDay(day)}
-            className={`flex min-h-[100px] sm:min-h-[180px] flex-col rounded-2xl border bg-background p-3 text-left transition hover:border-primary ${
-              isToday ? "border-primary" : "border-border"
-            }`}
-          >
-            <div className="mb-2 flex items-baseline justify-between">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                {day.toLocaleDateString("es-AR", { weekday: "short" })}
-              </div>
-              <div className="font-display text-xl">{day.getDate()}</div>
-            </div>
-            <div className="space-y-1.5">
-              {items.length === 0 && (
-                <div className="text-xs text-muted-foreground">Sin turnos</div>
-              )}
-              {items.slice(0, 4).map((a) => {
-                const patientName = a.patient
-                  ? `${a.patient.firstName} ${a.patient.lastName}`
-                  : "Paciente";
-                return (
-                  <div
-                    key={a.id}
-                    className={`rounded-md px-2 py-1 text-xs ${statusBg(a.displayStatus ?? a.status)}`}
-                  >
-                    <div className="font-medium">{fmtTime(new Date(a.scheduledAt))}</div>
-                    <div className="truncate text-muted-foreground">{patientName}</div>
-                  </div>
-                );
-              })}
-              {items.length > 4 && (
-                <div className="text-xs text-primary">+{items.length - 4} más</div>
-              )}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function statusBg(s: StaffAppt["status"]) {
-  switch (s) {
-    case "confirmado":
-      return "bg-teal/15 text-teal";
-    case "pendiente":
-      return "bg-accent/30 text-secondary";
-    case "cancelado":
-      return "bg-destructive/10 text-destructive line-through";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
-}
-
-function ApptCard({
-  appt,
-  onUpdateStatus,
-  onChanged,
-  pending,
-}: {
-  appt: StaffAppt;
-  onUpdateStatus: (id: string, status: StaffAppt["status"]) => void;
-  onChanged: () => void;
-  pending: boolean;
-}) {
-  const date = new Date(appt.scheduledAt);
-  const isPast = date.getTime() < Date.now();
-  const [reschedOpen, setReschedOpen] = useState(false);
-  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
-  const patientName = appt.patient
-    ? `${appt.patient.firstName} ${appt.patient.lastName}`
-    : "Paciente";
-  const docName = appt.doctor?.user
-    ? `${appt.doctor.user.firstName} ${appt.doctor.user.lastName}`
-    : (appt.doctor?.user?.name ?? "Profesional");
-
-  return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-5 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex items-start gap-4">
-        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-gradient-primary text-primary-foreground">
-          <Clock className="h-5 w-5" />
-        </div>
-        <div>
-          <div className="font-display text-lg text-foreground">
-            {fmtTime(date)} · {appt.durationMinutes ?? 30} min
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-            <span className="inline-flex items-center gap-1 text-foreground">
-              <User className="h-3.5 w-3.5" /> {patientName}
-            </span>
-            {appt.patient?.phone && (
-              <span className="text-muted-foreground">· {appt.patient.phone}</span>
-            )}
-            {appt.patient?.email && (
-              <span className="text-muted-foreground">· {appt.patient.email}</span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Stethoscope className="h-3 w-3" /> {docName}
-            </span>
-            <span>· {appt.doctor?.specialty?.name ?? appt.specialty?.name}</span>
-            {appt.doctor?.insuranceCompanies && appt.doctor.insuranceCompanies.length > 0 && (
-              <span>
-                · <Building2 className="mr-0.5 inline h-3 w-3" />
-                {appt.doctor.insuranceCompanies.join(", ")}
-              </span>
-            )}
-          </div>
-          {appt.notes && <div className="mt-2 text-sm text-muted-foreground">"{appt.notes}"</div>}
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusBg(appt.displayStatus ?? appt.status)}`}
-        >
-          {appt.displayStatus ?? appt.status}
-        </span>
-        {appt.status === "pendiente" && (
-          <Button
-            size="sm"
-            onClick={() => onUpdateStatus(appt.id, "confirmado")}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <span className="hidden sm:inline">Confirmar</span>
-            <span className="sm:hidden">Conf.</span>
-          </Button>
-        )}
-        {(appt.status === "pendiente" || appt.status === "confirmado") && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setReschedOpen(true)}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <span className="hidden sm:inline">Reprogramar</span>
-            <span className="sm:hidden">Reprog.</span>
-          </Button>
-        )}
-        {(appt.status === "pendiente" || appt.status === "confirmado") && (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => setConfirmCancelOpen(true)}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <span className="hidden sm:inline">Cancelar</span>
-            <span className="sm:hidden">Canc.</span>
-          </Button>
-        )}
-        {appt.status === "cancelado" && !isPast && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onUpdateStatus(appt.id, "pendiente")}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <span className="hidden sm:inline">Reactivar</span>
-            <span className="sm:hidden">React.</span>
-          </Button>
-        )}
-      </div>
-
-      <RescheduleDialog
-        open={reschedOpen}
-        onOpenChange={setReschedOpen}
-        appt={appt}
-        onDone={() => {
-          setReschedOpen(false);
-          onChanged();
-        }}
-      />
-
-      <AlertDialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Cancelar este turno?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {fmtTime(date)} · {patientName} con {docName}. El turno queda cancelado y el horario
-              vuelve a estar disponible. Se puede reactivar después, pero solo si nadie más lo
-              reservó mientras tanto.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Volver</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => onUpdateStatus(appt.id, "cancelado")}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Sí, cancelar turno
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
-
-function RescheduleDialog({
-  open,
-  onOpenChange,
-  appt,
-  onDone,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  appt: StaffAppt;
-  onDone: () => void;
-}) {
-  const initial = new Date(appt.scheduledAt);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const local = `${initial.getFullYear()}-${pad(initial.getMonth() + 1)}-${pad(initial.getDate())}T${pad(
-    initial.getHours(),
-  )}:${pad(initial.getMinutes())}`;
-  const [value, setValue] = useState(local);
-  const [duration, setDuration] = useState(appt.durationMinutes ?? 30);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setValue(local);
-      setDuration(appt.durationMinutes ?? 30);
-    }
-  }, [open]);
-
-  const submit = async () => {
-    if (!value) return;
-    setSaving(true);
-    try {
-      await rescheduleAppointment({
-        data: {
-          appointmentId: appt.id,
-          scheduledAt: new Date(value).toISOString(),
-          durationMinutes: duration,
-        },
-      });
-      toast.success("Turno reprogramado");
-      onDone();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al reprogramar el turno");
-    }
-    setSaving(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reprogramar turno</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>Nueva fecha y hora</Label>
-            <Input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} />
-          </div>
-          <div>
-            <Label>Duración (minutos)</Label>
-            <Input
-              type="number"
-              min={10}
-              step={5}
-              value={duration}
-              onChange={(e) => setDuration(parseInt(e.target.value) || 30)}
-            />
-          </div>
-          <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-            <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-            El sistema bloquea horarios superpuestos con otros turnos del profesional.
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={saving}>
-            {saving ? "Guardando..." : "Confirmar cambio"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -632,10 +290,11 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
   const [doctors, setDoctors] = useState<
     {
       id: string;
-      user: { firstName: string; lastName: string } | null;
+      user: { firstName: string; lastName: string; phone: string } | null;
       specialty: { name: string; id: string } | null;
       specialties: { specialty: { name: string; id: string } }[];
       slotMinutes: number | null;
+      directBooking: boolean | null;
     }[]
   >([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
@@ -672,14 +331,15 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
   }, []);
 
   useEffect(() => {
-    if (!selectedDoctorId) {
+    const selectedDoctor = doctors.find((d) => d.id === selectedDoctorId);
+    if (!selectedDoctorId || selectedDoctor?.directBooking) {
       setScheduleData([]);
       return;
     }
     getDoctorSchedule({ data: { doctorId: selectedDoctorId } })
       .then(setScheduleData)
       .catch(() => setScheduleData([]));
-  }, [selectedDoctorId]);
+  }, [selectedDoctorId, doctors]);
 
   useEffect(() => {
     if (!open) {
@@ -726,7 +386,8 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
   }, [searchTerm, doSearch]);
 
   useEffect(() => {
-    if (!selectedDoctorId || !selectedDate) {
+    const selectedDoctor = doctors.find((d) => d.id === selectedDoctorId);
+    if (!selectedDoctorId || !selectedDate || selectedDoctor?.directBooking) {
       setSlots([]);
       setSelectedSlot("");
       return;
@@ -775,7 +436,7 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
       setSearchTerm(`${patient.firstName} ${patient.lastName}`);
       toast.success("Paciente creado");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al crear paciente");
+      toastError(e, "Error al crear paciente");
     }
   };
 
@@ -806,13 +467,14 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
       setOpen(false);
       onCreated();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al crear el turno");
+      toastError(e, "Error al crear el turno");
     }
     setSubmitting(false);
   };
 
   const pad = (n: number) => String(n).padStart(2, "0");
   const today = `${new Date().getFullYear()}-${pad(new Date().getMonth() + 1)}-${pad(new Date().getDate())}`;
+  const selectedDoctorDetails = doctors.find((d) => d.id === selectedDoctorId);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -1034,79 +696,94 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
               </div>
             )}
 
-            {selectedDoctorId && scheduleData.length > 0 && (
-              <div>
-                <Label>Horarios de atención</Label>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((name, i) => {
-                    const active = scheduleData.some((s) => s.weekday === i);
-                    return (
-                      <span
-                        key={i}
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          active
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-muted text-muted-foreground opacity-40"
-                        }`}
-                      >
-                        {name}
-                      </span>
-                    );
-                  })}
-                </div>
+            {selectedDoctorId && selectedDoctorDetails?.directBooking ? (
+              <div className="rounded-xl border border-teal/30 bg-teal/5 p-4 space-y-1">
+                <p className="text-sm font-medium">
+                  Este profesional coordina los turnos por WhatsApp directo.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  No se agenda en el sistema — contactalo al{" "}
+                  {formatArPhone(selectedDoctorDetails.user?.phone ?? "")} para coordinar con el
+                  paciente.
+                </p>
               </div>
-            )}
+            ) : (
+              <>
+                {selectedDoctorId && scheduleData.length > 0 && (
+                  <div>
+                    <Label>Horarios de atención</Label>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((name, i) => {
+                        const active = scheduleData.some((s) => s.weekday === i);
+                        return (
+                          <span
+                            key={i}
+                            className={`rounded-full px-3 py-1 text-xs font-medium ${
+                              active
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-muted text-muted-foreground opacity-40"
+                            }`}
+                          >
+                            {name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-            {selectedDoctorId && (
-              <div>
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  min={today}
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    setSelectedSlot("");
-                  }}
-                />
-              </div>
-            )}
+                {selectedDoctorId && (
+                  <div>
+                    <Label>Fecha</Label>
+                    <Input
+                      type="date"
+                      min={today}
+                      value={selectedDate}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value);
+                        setSelectedSlot("");
+                      }}
+                    />
+                  </div>
+                )}
 
-            {slots.length > 0 && (
-              <div>
-                <Label>Horario disponible</Label>
-                <div className="mt-1 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
-                  {slots.map((s) =>
-                    s.available ? (
-                      <button
-                        key={s.value}
-                        type="button"
-                        onClick={() => setSelectedSlot(s.value)}
-                        className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                          selectedSlot === s.value
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border hover:border-primary"
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    ) : (
-                      <div
-                        key={s.value}
-                        className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-sm text-destructive"
-                      >
-                        Ocupado
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
+                {slots.length > 0 && (
+                  <div>
+                    <Label>Horario disponible</Label>
+                    <div className="mt-1 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+                      {slots.map((s) =>
+                        s.available ? (
+                          <button
+                            key={s.value}
+                            type="button"
+                            onClick={() => setSelectedSlot(s.value)}
+                            className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                              selectedSlot === s.value
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border hover:border-primary"
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        ) : (
+                          <div
+                            key={s.value}
+                            className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-sm text-destructive"
+                          >
+                            Ocupado
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                )}
 
-            {selectedDoctorId && selectedDate && slots.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No hay horarios disponibles para esta fecha.
-              </p>
+                {selectedDoctorId && selectedDate && slots.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No hay horarios disponibles para esta fecha.
+                  </p>
+                )}
+              </>
             )}
 
             <DialogFooter>
@@ -1114,7 +791,13 @@ function NewAppointmentDialog({ onCreated }: { onCreated: () => void }) {
                 Atrás
               </Button>
               <Button
-                disabled={!selectedDoctorId || !selectedSlot || !selectedSpecialtyId || submitting}
+                disabled={
+                  !selectedDoctorId ||
+                  !selectedSlot ||
+                  !selectedSpecialtyId ||
+                  submitting ||
+                  !!selectedDoctorDetails?.directBooking
+                }
                 onClick={handleSubmit}
               >
                 {submitting ? "Creando..." : "Confirmar turno"}

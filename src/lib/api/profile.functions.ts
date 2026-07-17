@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { db } from "@/db";
-import { user, patients } from "@/db/schema";
+import { user, patients, doctors } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireSession } from "./_guards";
+import { isValidArPhone } from "@/lib/phone";
 
 export const resolveLoginIdentifier = createServerFn({ method: "POST" })
   .inputValidator(z.object({ identifier: z.string().min(1) }))
@@ -42,9 +43,20 @@ export const updateProfile = createServerFn({ method: "POST" })
     const session = await requireSession();
     const userId = session.user.id;
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    let directBookingDisabled = false;
     if (fields.firstName !== undefined) updateData.firstName = fields.firstName;
     if (fields.lastName !== undefined) updateData.lastName = fields.lastName;
-    if (fields.phone !== undefined) updateData.phone = fields.phone;
+    if (fields.phone !== undefined) {
+      updateData.phone = fields.phone;
+      if (session.user.role === "medico" && !isValidArPhone(fields.phone)) {
+        const disabled = await db
+          .update(doctors)
+          .set({ directBooking: false })
+          .where(and(eq(doctors.userId, userId), eq(doctors.directBooking, true)))
+          .returning({ id: doctors.id });
+        directBookingDisabled = disabled.length > 0;
+      }
+    }
     if (fields.email !== undefined) {
       const normalizedEmail = fields.email.toLowerCase();
       const existing = await db
@@ -65,5 +77,5 @@ export const updateProfile = createServerFn({ method: "POST" })
         `${updateData.firstName ?? ""} ${updateData.lastName ?? ""}`.trim() || normalizedEmail;
     }
     await db.update(user).set(updateData).where(eq(user.id, userId));
-    return { success: true };
+    return { success: true, directBookingDisabled };
   });

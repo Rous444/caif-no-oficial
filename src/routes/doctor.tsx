@@ -5,11 +5,8 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  Stethoscope,
   User,
   Settings2,
-  Check,
   X,
   Building2,
   Plus,
@@ -20,6 +17,7 @@ import {
   Search,
   History,
   Smartphone,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,23 +38,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   getDoctorAppointments,
   updateAppointmentStatus,
-  rescheduleAppointment,
   bookAppointment,
   getDayAppointments,
 } from "@/lib/api/appointments.functions";
@@ -68,34 +55,32 @@ import {
   updateMyInsurance,
   updateMyBio,
   updateMyWhatsappPreference,
+  updateMyDirectBooking,
 } from "@/lib/api/doctor-schedule.functions";
 import { searchPatients } from "@/lib/api/admin-users.functions";
 import { getAllSpecialties } from "@/lib/api/specialties.functions";
 import { generateSlots, type Slot } from "@/lib/slots";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { toastError } from "@/lib/toastError";
 import { Switch } from "@/components/ui/switch";
+import { isValidArPhone } from "@/lib/phone";
 import {
   uploadMedicalRecord,
   getMyPatientRecords,
   getRecordFile,
   deleteMedicalRecord,
 } from "@/lib/api/medical-records.functions";
+import { DayGrid } from "@/components/agenda/DayGrid";
+import { WeekView } from "@/components/agenda/WeekView";
+import { FreshnessIndicator } from "@/components/agenda/FreshnessIndicator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTabVisible } from "@/lib/useTabVisible";
+import type { AgendaAppt } from "@/components/agenda/status";
 
 export const Route = createFileRoute("/doctor")({
   head: () => ({ meta: [{ title: "Mi Agenda · CAIF" }] }),
   component: DoctorPanel,
 });
-
-type DoctorAppt = {
-  id: string;
-  scheduledAt: Date;
-  durationMinutes: number | null;
-  status: "pendiente" | "confirmado" | "cancelado" | "completado" | "ausente";
-  displayStatus?: "pendiente" | "confirmado" | "cancelado" | "completado" | "ausente";
-  notes: string | null;
-  specialty: { name: string } | null;
-  patient: { id: string; firstName: string; lastName: string; email: string; phone: string } | null;
-};
 
 type ScheduleEntry = {
   weekday: number;
@@ -173,6 +158,66 @@ function DoctorWhatsAppToggle({ userId }: { userId: string }) {
       {whatsappEnabled && (
         <p className="mt-3 text-xs text-teal">
           ✓ Activado — mañana recibirás tus turnos por WhatsApp
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DoctorDirectBookingToggle({ userId }: { userId: string }) {
+  const { data: doctor, isLoading } = useQuery({
+    queryKey: ["my-doctor-profile", userId],
+    queryFn: () => getMyDoctorProfile(),
+  });
+
+  const queryClient = useQueryClient();
+
+  const toggleDirectBooking = useMutation({
+    mutationFn: (enabled: boolean) => updateMyDirectBooking({ data: { enabled } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-doctor-profile", userId] });
+      toast.success(
+        doctor?.directBooking ? "WhatsApp directo desactivado" : "WhatsApp directo activado",
+      );
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Error al actualizar preferencia");
+    },
+  });
+
+  const directBookingEnabled = doctor?.directBooking ?? false;
+  const phoneValid = isValidArPhone(doctor?.user?.phone ?? "");
+
+  return (
+    <div className="rounded-2xl border border-border bg-background p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10">
+            <MessageCircle className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-display text-lg">Coordinar turnos por WhatsApp directo</h3>
+            <p className="text-sm text-muted-foreground">
+              Los pacientes verán tu WhatsApp en lugar del calendario para sacar turno.
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={directBookingEnabled}
+          onCheckedChange={(checked) => toggleDirectBooking.mutate(checked)}
+          disabled={
+            toggleDirectBooking.isPending || isLoading || (!directBookingEnabled && !phoneValid)
+          }
+        />
+      </div>
+      {directBookingEnabled && (
+        <p className="mt-3 text-xs text-teal">
+          ✓ Activado — los pacientes coordinan por WhatsApp en vez de reservar en el sistema
+        </p>
+      )}
+      {!directBookingEnabled && !phoneValid && !isLoading && (
+        <p className="mt-3 text-xs text-destructive">
+          Tu teléfono no tiene un formato válido. Corregilo en "Perfil" para poder activar esto.
         </p>
       )}
     </div>
@@ -260,6 +305,7 @@ function DoctorPanel() {
           <div className="mt-6 space-y-6">
             <ProfileEditor />
             <DoctorWhatsAppToggle userId={user!.id} />
+            <DoctorDirectBookingToggle userId={user!.id} />
           </div>
         </TabsContent>
       </Tabs>
@@ -277,16 +323,23 @@ function AgendaTab({ userId }: { userId: string }) {
     queryFn: () => getDoctorIdByUserId(),
   });
 
+  const isTabVisible = useTabVisible();
+  const queryClient = useQueryClient();
+  const doctorApptsKey = ["doctor-appts", userId];
+
   const {
     data: appts,
     refetch,
     isLoading,
+    isFetching,
+    dataUpdatedAt,
   } = useQuery({
-    queryKey: ["doctor-appts", userId],
+    queryKey: doctorApptsKey,
     enabled: !!doctorId,
+    refetchInterval: isTabVisible ? 45_000 : false,
     queryFn: async () => {
       const all = await getDoctorAppointments();
-      return all as DoctorAppt[];
+      return all as AgendaAppt[];
     },
   });
 
@@ -307,23 +360,42 @@ function AgendaTab({ userId }: { userId: string }) {
 
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
-  const updateStatus = async (id: string, status: DoctorAppt["status"]) => {
+  const statusMutation = useMutation({
+    mutationFn: (vars: { id: string; status: AgendaAppt["status"] }) =>
+      updateAppointmentStatus({ data: { appointmentId: vars.id, status: vars.status } }),
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey: doctorApptsKey });
+      const previous = queryClient.getQueryData<AgendaAppt[]>(doctorApptsKey);
+      queryClient.setQueryData<AgendaAppt[]>(doctorApptsKey, (old) =>
+        old?.map((a) => (a.id === vars.id ? { ...a, status: vars.status } : a)),
+      );
+      return { previous };
+    },
+    onSuccess: () => toast.success("Turno actualizado"),
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(doctorApptsKey, ctx.previous);
+      toastError(err, "Error al actualizar el turno");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: doctorApptsKey });
+    },
+  });
+
+  const updateStatus = (id: string, status: AgendaAppt["status"]) => {
     if (pendingIds.has(id)) return;
     setPendingIds((prev) => new Set(prev).add(id));
-    try {
-      await updateAppointmentStatus({ data: { appointmentId: id, status } });
-      toast.success("Turno actualizado");
-      refetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al actualizar el turno");
-      refetch();
-    } finally {
-      setPendingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }
+    statusMutation.mutate(
+      { id, status },
+      {
+        onSettled: () => {
+          setPendingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        },
+      },
+    );
   };
 
   const move = (n: number) => setCursor(addDays(cursor, view === "day" ? n : n * 7));
@@ -352,7 +424,7 @@ function AgendaTab({ userId }: { userId: string }) {
         )}
       </div>
 
-      <div className="mb-6 flex items-center justify-between rounded-2xl border border-border bg-background p-4">
+      <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-border bg-background p-4">
         <Button variant="ghost" size="icon" onClick={() => move(-1)} aria-label="Anterior">
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -362,12 +434,19 @@ function AgendaTab({ userId }: { userId: string }) {
               ? fmtDate(cursor)
               : `${startOfWeek(cursor).toLocaleDateString("es-AR", { day: "numeric", month: "short" })} – ${addDays(startOfWeek(cursor), 6).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" })}`}
           </div>
-          <button
-            className="mt-1 text-xs text-primary hover:underline"
-            onClick={() => setCursor(startOfDay(new Date()))}
-          >
-            Hoy
-          </button>
+          <div className="mt-1 flex items-center gap-3">
+            <button
+              className="text-xs text-primary hover:underline"
+              onClick={() => setCursor(startOfDay(new Date()))}
+            >
+              Hoy
+            </button>
+            <FreshnessIndicator
+              updatedAt={dataUpdatedAt}
+              isFetching={isFetching}
+              onRefresh={() => refetch()}
+            />
+          </div>
         </div>
         <Button variant="ghost" size="icon" onClick={() => move(1)} aria-label="Siguiente">
           <ChevronRight className="h-5 w-5" />
@@ -375,12 +454,15 @@ function AgendaTab({ userId }: { userId: string }) {
       </div>
 
       {isLoading ? (
-        <div className="rounded-2xl border border-border bg-background p-10 text-center text-muted-foreground">
-          Cargando agenda...
+        <div className="space-y-2 rounded-2xl border border-border bg-background p-4">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-64 w-full" />
         </div>
       ) : view === "day" ? (
-        <DayView
+        <DayGrid
+          date={cursor}
           appts={filtered}
+          variant="doctor"
           onUpdateStatus={updateStatus}
           onChanged={refetch}
           pendingIds={pendingIds}
@@ -396,438 +478,6 @@ function AgendaTab({ userId }: { userId: string }) {
         />
       )}
     </div>
-  );
-}
-
-function DayView({
-  appts,
-  onUpdateStatus,
-  onChanged,
-  pendingIds,
-}: {
-  appts: DoctorAppt[];
-  onUpdateStatus: (id: string, status: DoctorAppt["status"]) => void;
-  onChanged: () => void;
-  pendingIds: Set<string>;
-}) {
-  const [patientSearch, setPatientSearch] = useState("");
-  const [historyPatient, setHistoryPatient] = useState<DoctorAppt["patient"] | null>(null);
-
-  const filtered = patientSearch.trim()
-    ? appts.filter((a) => {
-        const name = a.patient ? `${a.patient.firstName} ${a.patient.lastName}`.toLowerCase() : "";
-        return name.includes(patientSearch.toLowerCase());
-      })
-    : appts;
-
-  const patientAppointments = historyPatient
-    ? appts.filter((a) => a.patient?.id === historyPatient.id)
-    : [];
-
-  if (appts.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center text-muted-foreground">
-        No hay turnos para este día.
-      </div>
-    );
-  }
-  return (
-    <>
-      <div className="relative mb-4 max-w-xs">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Buscar paciente..."
-          value={patientSearch}
-          onChange={(e) => setPatientSearch(e.target.value)}
-        />
-      </div>
-      {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-background p-10 text-center text-muted-foreground">
-          No se encontraron turnos para "{patientSearch}".
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((a) => (
-            <ApptCard
-              key={a.id}
-              appt={a}
-              onUpdateStatus={onUpdateStatus}
-              onChanged={onChanged}
-              onShowHistory={(p) => setHistoryPatient(p)}
-              pending={pendingIds.has(a.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      <Dialog
-        open={!!historyPatient}
-        onOpenChange={(v) => {
-          if (!v) setHistoryPatient(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Historial de {historyPatient?.firstName} {historyPatient?.lastName}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="max-h-80 space-y-2 overflow-y-auto">
-            {patientAppointments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Solo tiene este turno.</p>
-            ) : (
-              patientAppointments.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex items-center justify-between rounded-lg border border-border p-3 text-sm"
-                >
-                  <div>
-                    <div className="font-medium">{fmtDate(new Date(a.scheduledAt))}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {fmtTime(new Date(a.scheduledAt))} · {a.durationMinutes ?? 30} min ·{" "}
-                      {a.specialty?.name}
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusBg(a.displayStatus ?? a.status)}`}
-                  >
-                    {a.displayStatus ?? a.status}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setHistoryPatient(null)}>
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-function WeekView({
-  from,
-  appts,
-  onPickDay,
-}: {
-  from: Date;
-  appts: DoctorAppt[];
-  onPickDay: (d: Date) => void;
-}) {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(from, i));
-  const grouped = days.map((d) => {
-    const next = addDays(d, 1);
-    return {
-      day: d,
-      items: appts.filter((a) => {
-        const t = new Date(a.scheduledAt);
-        return t >= d && t < next;
-      }),
-    };
-  });
-
-  return (
-    <div className="grid gap-3 md:grid-cols-7">
-      {grouped.map(({ day, items }) => {
-        const isToday = day.toDateString() === new Date().toDateString();
-        return (
-          <button
-            key={day.toISOString()}
-            onClick={() => onPickDay(day)}
-            className={`flex min-h-[100px] sm:min-h-[180px] flex-col rounded-2xl border bg-background p-3 text-left transition hover:border-primary ${isToday ? "border-primary" : "border-border"}`}
-          >
-            <div className="mb-2 flex items-baseline justify-between">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                {day.toLocaleDateString("es-AR", { weekday: "short" })}
-              </div>
-              <div className="font-display text-xl">{day.getDate()}</div>
-            </div>
-            <div className="space-y-1.5">
-              {items.length === 0 && (
-                <div className="text-xs text-muted-foreground">Sin turnos</div>
-              )}
-              {items.slice(0, 4).map((a) => {
-                const patientName = a.patient
-                  ? `${a.patient.firstName} ${a.patient.lastName}`
-                  : "Paciente";
-                return (
-                  <div
-                    key={a.id}
-                    className={`rounded-md px-2 py-1 text-xs ${statusBg(a.displayStatus ?? a.status)}`}
-                  >
-                    <div className="font-medium">{fmtTime(new Date(a.scheduledAt))}</div>
-                    <div className="truncate text-muted-foreground">{patientName}</div>
-                  </div>
-                );
-              })}
-              {items.length > 4 && (
-                <div className="text-xs text-primary">+{items.length - 4} más</div>
-              )}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function statusBg(s: DoctorAppt["status"]) {
-  switch (s) {
-    case "confirmado":
-      return "bg-teal/15 text-teal";
-    case "pendiente":
-      return "bg-accent/30 text-secondary";
-    case "cancelado":
-      return "bg-destructive/10 text-destructive line-through";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
-}
-
-function ApptCard({
-  appt,
-  onUpdateStatus,
-  onChanged,
-  onShowHistory,
-  pending,
-}: {
-  appt: DoctorAppt;
-  onUpdateStatus: (id: string, status: DoctorAppt["status"]) => void;
-  onChanged: () => void;
-  onShowHistory?: (patient: DoctorAppt["patient"]) => void;
-  pending: boolean;
-}) {
-  const date = new Date(appt.scheduledAt);
-  const isPast = date.getTime() < Date.now();
-  const [reschedOpen, setReschedOpen] = useState(false);
-  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
-  const patientName = appt.patient
-    ? `${appt.patient.firstName} ${appt.patient.lastName}`
-    : "Paciente";
-
-  return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-5 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex items-start gap-4">
-        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-gradient-primary text-primary-foreground">
-          <Clock className="h-5 w-5" />
-        </div>
-        <div>
-          <div className="font-display text-lg text-foreground">
-            {fmtTime(date)} · {appt.durationMinutes ?? 30} min
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-            <span className="inline-flex items-center gap-1 text-foreground">
-              <User className="h-3.5 w-3.5" /> {patientName}
-            </span>
-            {appt.patient?.phone && (
-              <span className="text-muted-foreground">· {appt.patient.phone}</span>
-            )}
-            {appt.patient?.email && (
-              <span className="text-muted-foreground">· {appt.patient.email}</span>
-            )}
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Stethoscope className="h-3 w-3" /> {appt.specialty?.name}
-            </span>
-          </div>
-          {appt.notes && <div className="mt-2 text-sm text-muted-foreground">"{appt.notes}"</div>}
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {appt.patient && onShowHistory && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onShowHistory(appt.patient)}
-            className="min-h-[44px]"
-          >
-            <History className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Historial</span>
-          </Button>
-        )}
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusBg(appt.displayStatus ?? appt.status)}`}
-        >
-          {appt.displayStatus ?? appt.status}
-        </span>
-        {appt.status === "pendiente" && (
-          <Button
-            size="sm"
-            onClick={() => onUpdateStatus(appt.id, "confirmado")}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <Check className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Confirmar</span>
-          </Button>
-        )}
-        {(appt.status === "pendiente" || appt.status === "confirmado") && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setReschedOpen(true)}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <span className="hidden sm:inline">Reprogramar</span>
-            <span className="sm:hidden">Reprog.</span>
-          </Button>
-        )}
-        {appt.status === "confirmado" && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onUpdateStatus(appt.id, "ausente")}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <span className="hidden sm:inline">Marcar ausente</span>
-            <span className="sm:hidden">Ausente</span>
-          </Button>
-        )}
-        {(appt.status === "pendiente" || appt.status === "confirmado") && (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => setConfirmCancelOpen(true)}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <X className="h-4 w-4" /> <span className="ml-1 hidden sm:inline">Cancelar</span>
-          </Button>
-        )}
-        {appt.status === "cancelado" && !isPast && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onUpdateStatus(appt.id, "pendiente")}
-            disabled={pending}
-            className="min-h-[44px]"
-          >
-            <span className="hidden sm:inline">Reactivar</span>
-            <span className="sm:hidden">React.</span>
-          </Button>
-        )}
-      </div>
-
-      <RescheduleDialog
-        open={reschedOpen}
-        onOpenChange={setReschedOpen}
-        appt={appt}
-        onDone={() => {
-          setReschedOpen(false);
-          onChanged();
-        }}
-      />
-
-      <AlertDialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Cancelar este turno?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {fmtTime(date)} · {patientName}. El turno queda cancelado y el horario vuelve a
-              estar disponible. Se puede reactivar después, pero solo si nadie más lo reservó
-              mientras tanto.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Volver</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => onUpdateStatus(appt.id, "cancelado")}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Sí, cancelar turno
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
-
-function RescheduleDialog({
-  open,
-  onOpenChange,
-  appt,
-  onDone,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  appt: DoctorAppt;
-  onDone: () => void;
-}) {
-  const initial = new Date(appt.scheduledAt);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const local = `${initial.getFullYear()}-${pad(initial.getMonth() + 1)}-${pad(initial.getDate())}T${pad(initial.getHours())}:${pad(initial.getMinutes())}`;
-  const [value, setValue] = useState(local);
-  const [duration, setDuration] = useState(appt.durationMinutes ?? 30);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setValue(local);
-      setDuration(appt.durationMinutes ?? 30);
-    }
-  }, [open]);
-
-  const submit = async () => {
-    if (!value) return;
-    setSaving(true);
-    try {
-      await rescheduleAppointment({
-        data: {
-          appointmentId: appt.id,
-          scheduledAt: new Date(value).toISOString(),
-          durationMinutes: duration,
-        },
-      });
-      toast.success("Turno reprogramado");
-      onDone();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al reprogramar el turno");
-    }
-    setSaving(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reprogramar turno</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>Nueva fecha y hora</Label>
-            <Input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} />
-          </div>
-          <div>
-            <Label>Duración (minutos)</Label>
-            <Input
-              type="number"
-              min={10}
-              step={5}
-              value={duration}
-              onChange={(e) => setDuration(parseInt(e.target.value) || 30)}
-            />
-          </div>
-          <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-            <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-            El sistema bloquea horarios superpuestos con otros turnos del profesional.
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={saving}>
-            {saving ? "Guardando..." : "Confirmar cambio"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -860,8 +510,8 @@ function InsuranceTab({ userId }: { userId: string }) {
     try {
       await updateMyInsurance({ data: { insuranceCompanies: items } });
       toast.success("Obras sociales guardadas");
-    } catch {
-      toast.error("Error al guardar");
+    } catch (err) {
+      toastError(err, "Error al guardar");
     }
   };
 
@@ -972,7 +622,7 @@ function ScheduleTab({ userId }: { userId: string }) {
       queryClient.invalidateQueries({ queryKey: ["my-schedule"] });
       toast.success("Horarios guardados");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al guardar horarios");
+      toastError(err, "Error al guardar horarios");
     }
   };
 
@@ -1079,8 +729,8 @@ function DescriptionTab({ userId }: { userId: string }) {
     try {
       await updateMyBio({ data: { bio } });
       toast.success("Descripción guardada");
-    } catch {
-      toast.error("Error al guardar la descripción");
+    } catch (err) {
+      toastError(err, "Error al guardar la descripción");
     }
     setSaving(false);
   };
@@ -1128,7 +778,7 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
     enabled: !!doctorId,
     queryFn: async () => {
       const all = await getDoctorAppointments();
-      return all as DoctorAppt[];
+      return all as AgendaAppt[];
     },
   });
 
@@ -1188,7 +838,7 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
       setUploadForPatient(null);
       refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al subir la ficha");
+      toastError(e, "Error al subir la ficha");
     }
     setUploading(false);
   };
@@ -1212,8 +862,8 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
         a.click();
       }
       URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Error al abrir la ficha");
+    } catch (err) {
+      toastError(err, "Error al abrir la ficha");
     }
   };
 
@@ -1222,8 +872,8 @@ function MedicalRecordsTab({ userId }: { userId: string }) {
       await deleteMedicalRecord({ data: { recordId } });
       toast.success("Ficha eliminada");
       refetch();
-    } catch {
-      toast.error("Error al eliminar la ficha");
+    } catch (err) {
+      toastError(err, "Error al eliminar la ficha");
     }
   };
 
@@ -1643,7 +1293,7 @@ function DoctorNewTurnoDialog({
       onOpenChange(false);
       onCreated();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al crear el turno");
+      toastError(e, "Error al crear el turno");
     }
     setSubmitting(false);
   };

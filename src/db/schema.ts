@@ -119,6 +119,7 @@ export const doctors = pgTable("doctors", {
   insuranceCompanies: text("insurance_companies").array(),
   isActive: boolean("is_active").default(true),
   whatsappNotifications: boolean("whatsapp_notifications").default(false),
+  directBooking: boolean("direct_booking").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -153,6 +154,10 @@ export const appointments = pgTable("appointments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Plan 08: `fileData` (base64 en Postgres) se reemplaza por `storagePath` (archivo en
+// disco, ver src/lib/storage.server.ts). `fileData` queda nullable durante la
+// transición para servir filas viejas aún no migradas; se elimina en una migración
+// manual posterior, fuera del `drizzle-kit push` automático del deploy.
 export const galleryImages = pgTable("gallery_images", {
   id: uuid("id").primaryKey().defaultRandom(),
   url: text("url"),
@@ -161,6 +166,7 @@ export const galleryImages = pgTable("gallery_images", {
   isActive: boolean("is_active").default(true),
   imageType: text("image_type").default("url"),
   fileData: text("file_data"),
+  storagePath: text("storage_path"),
   fileSize: integer("file_size"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -175,7 +181,8 @@ export const medicalRecords = pgTable("medical_records", {
     .references(() => user.id, { onDelete: "cascade" }),
   fileName: text("file_name").notNull(),
   fileType: text("file_type").notNull().default("application/pdf"),
-  fileData: text("file_data").notNull(),
+  fileData: text("file_data"),
+  storagePath: text("storage_path"),
   fileSize: integer("file_size").notNull(),
   recordVersion: integer("record_version").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),

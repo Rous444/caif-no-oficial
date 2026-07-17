@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,9 +7,11 @@ import { useAuth } from "@/lib/auth";
 import { updateProfile } from "@/lib/api/profile.functions";
 import { toast } from "sonner";
 import { User, Save } from "lucide-react";
+import { formatArPhone, isValidArPhone, toWaPhone } from "@/lib/phone";
 
 export function ProfileEditor() {
   const { user, refreshUser } = useAuth();
+  const queryClient = useQueryClient();
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
   const [lastName, setLastName] = useState(user?.lastName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
@@ -25,7 +28,7 @@ export function ProfileEditor() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateProfile({
+      const result = await updateProfile({
         data: {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -34,8 +37,14 @@ export function ProfileEditor() {
         },
       });
       await refreshUser();
+      queryClient.invalidateQueries({ queryKey: ["my-doctor-profile"] });
       setChanged(false);
       toast.success("Perfil actualizado");
+      if (result.directBookingDisabled) {
+        toast.warning(
+          "Se desactivó WhatsApp directo porque el teléfono ya no tiene un formato válido.",
+        );
+      }
     } catch (e: any) {
       toast.error(e?.message || "Error al actualizar perfil");
     }
@@ -77,12 +86,18 @@ export function ProfileEditor() {
         <div>
           <Label>Teléfono</Label>
           <Input
-            value={phone}
+            type="tel"
+            value={formatArPhone(phone)}
             onChange={(e) => {
-              setPhone(e.target.value);
+              setPhone(toWaPhone(e.target.value));
               markChanged();
             }}
           />
+          {phone && !isValidArPhone(phone) && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Verificá el número (se esperan 10 dígitos locales, ej. +54 9 11 2345-6789).
+            </p>
+          )}
         </div>
         <div>
           <Label>Email</Label>

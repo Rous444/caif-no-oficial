@@ -44,14 +44,34 @@ En `BookAppointmentDialog` ([`dashboard.tsx:196`](../src/routes/dashboard.tsx)):
 ### 4. Exponer el flag donde se listan médicos
 `getDoctorsBySpecialty` (y cualquier selector de médico en staff/doctor) debe incluir `directBooking` y `phone`. Considerar si recepción, al sacar un turno para un paciente, también debe ver el aviso (probablemente sí: no tiene sentido agendar en el sistema a un médico que lo maneja por fuera).
 
+### 5. Formato y validación de teléfono (agregado tras revisión con cliente)
+
+Hoy `user.phone` se guarda como el admin lo tipee, sin normalizar (`z.string().min(1)` en [`admin-users.functions.ts`](../src/lib/api/admin-users.functions.ts)), y `sendTextMessage`/`sendTurneroPDF` ([`whatsapp.ts:144,162`](../src/lib/whatsapp.ts)) lo usan **tal cual** concatenado con `@c.us` — esperan dígitos puros en formato `549` + 10 dígitos locales (ej. `5491122334455`), sin `+` ni separadores. Cualquier normalización debe preservar exactamente ese formato de guardado para no romper el turnero (Plan 02, "qué NO tocar").
+
+Se agrega `src/lib/phone.ts`:
+- `normalizeArPhoneDigits(raw)`: extrae dígitos, quita prefijo `54` y `9` si están, devuelve los 10 dígitos locales.
+- `isValidArPhone(raw)`: `true` si normaliza a exactamente 10 dígitos.
+- `formatArPhone(raw)`: máscara de visualización con separador de código de área **variable** (2, 3 o 4 dígitos), no fijo — el resto del número siempre se agrupa dejando los últimos 4 dígitos como grupo final (ej. `+54 9 11 2345-6789` para CABA/GBA de 2 dígitos, `+54 9 351 234-5678` para Córdoba de 3, `+54 9 3440 11-2233` para un código de 4). El código de área se detecta contra una lista de códigos de 2 y 3 dígitos conocidos (`TWO_DIGIT_AREA_CODES`/`THREE_DIGIT_AREA_CODES` en `phone.ts`); lo que no matchea esa lista se asume de 4 dígitos por defecto. Esta lista es de memoria/pública, no está validada contra el nomenclador oficial de ENACOM — si aparece un código de área real que se agrupe mal, se agrega a la lista.
+- `toWaPhone(raw)` / `toWaLink(raw, text)`: arman `549` + 10 dígitos y el link `wa.me`.
+
+Aplicación (sin tocar registro/login de pacientes, §4.6):
+- **`ProfileEditor.tsx`** (todos los roles, incluye pacientes): el input de teléfono muestra `formatArPhone` en vivo mientras se escribe; el valor guardado sigue siendo el dígito-puro normalizado (`549` + local). **No bloqueante** — no impide guardar si el formato no cierra, para no agregar fricción a pacientes.
+- **`admin.tsx`** (alta de médico/recepcionista): mismo input con máscara en vivo. Para el alta de **médico** específicamente, el submit se bloquea si `!isValidArPhone(phone)` (ese número es el que se va a usar para WhatsApp Directo; para recepcionista queda como hoy, no bloqueante).
+- **`doctor.tsx`** (toggle "WhatsApp directo"): si el médico intenta activar el toggle y su `user.phone` no pasa `isValidArPhone`, se bloquea con mensaje pidiendo corregir el teléfono en su perfil primero.
+- **`dashboard.tsx` / `staff.tsx`** (panel que ve el paciente/recepción): el número se muestra con `formatArPhone` para lectura humana; el link usa `toWaLink` con los dígitos puros.
+
+No se migra ni reformatea el `phone` de usuarios ya existentes (freeze de datos, §4.7) — la máscara solo aplica a edición/alta nueva.
+
 ## Pasos de implementación
 
 1. Migración: agregar `direct_booking` a `doctors` (aditiva, default false → segura).
-2. Server fn `updateMyDirectBooking` + incluir el flag en las lecturas de perfil y en `getDoctorsBySpecialty`.
-3. Toggle en el dashboard del médico.
-4. Helper `toWaLink(phone, text)` + panel de WhatsApp en el diálogo de reserva del paciente.
-5. Aplicar el mismo aviso en el flujo de recepción (`staff.tsx` `NewAppointmentDialog`).
-6. (Decisión) qué pasa con los turnos ya existentes de un médico que activa el modo — ver pregunta abierta.
+2. `src/lib/phone.ts` (normalize/format/validate/link) con tests.
+3. Server fn `updateMyDirectBooking` + incluir el flag en las lecturas de perfil y en `getDoctorsBySpecialty`.
+4. Toggle en el dashboard del médico, con gate de teléfono válido.
+5. Panel de WhatsApp en el diálogo de reserva del paciente (dashboard.tsx), usando `toWaLink`/`formatArPhone`.
+6. Aplicar el mismo aviso en el flujo de recepción (`staff.tsx` `NewAppointmentDialog`).
+7. Máscara de teléfono en `ProfileEditor.tsx` (no bloqueante) y en `admin.tsx` (bloqueante solo para alta de médico).
+8. Turnos ya existentes al activar el modo: se mantienen tal cual; el médico puede cancelarlos manualmente si lo necesita (sin automatismo agregado).
 
 ## Consideraciones de despliegue
 
@@ -65,11 +85,11 @@ En `BookAppointmentDialog` ([`dashboard.tsx:196`](../src/routes/dashboard.tsx)):
 - Un médico con el toggle en `false` funciona igual que hoy.
 - Recepción ve el aviso al intentar agendarle un turno a ese médico.
 
-## Preguntas abiertas
+## Preguntas abiertas — resueltas (confirmado con cliente)
 
-- ¿El número de WhatsApp es siempre `user.phone` o puede ser uno distinto? (Define si se agrega `whatsappNumber`.)
-- ¿Prefijo de país por defecto para normalizar? (AR `54` asumido.)
-- Al **activar** el modo, ¿qué pasa con los turnos ya agendados en el sistema para ese médico? ¿Se mantienen y se siguen avisando, o se ocultan/cancelan? (Recomendado: mantenerlos hasta que se completen; solo cambia el flujo de reserva nueva.)
+- Número de WhatsApp: siempre `user.phone`. No se agrega `whatsappNumber`.
+- Prefijo de país por defecto: `54` (AR).
+- Turnos ya agendados al activar el modo: se **mantienen**; el médico los cancela manualmente si lo necesita.
 
 ## Qué NO tocar
 

@@ -45,6 +45,7 @@ import {
   deleteSpecialty,
 } from "@/lib/api/specialties.functions";
 import { getAllDoctors, updateDoctor, deleteDoctor } from "@/lib/api/admin-doctors.functions";
+import { formatArPhone, isValidArPhone, toWaPhone } from "@/lib/phone";
 import {
   getUsers,
   createDoctorAccount,
@@ -647,7 +648,17 @@ function CreateUserDialog({
           </div>
           <div>
             <Label>Teléfono</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            <Input
+              type="tel"
+              value={formatArPhone(phone)}
+              onChange={(e) => setPhone(toWaPhone(e.target.value))}
+              required
+            />
+            {type === "medico" && phone && !isValidArPhone(phone) && (
+              <p className="mt-1 text-xs text-destructive">
+                Formato inválido — se necesita un número válido para WhatsApp directo.
+              </p>
+            )}
           </div>
           {type === "medico" && (
             <div>
@@ -689,7 +700,8 @@ function CreateUserDialog({
               !lastName ||
               !email ||
               !phone ||
-              (type === "medico" && specialtyIds.length === 0)
+              (type === "medico" && specialtyIds.length === 0) ||
+              (type === "medico" && !isValidArPhone(phone))
             }
           >
             {saving ? "Creando..." : "Crear"}

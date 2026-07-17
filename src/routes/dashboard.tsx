@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Clock, Plus, Stethoscope, User, Building2 } from "lucide-react";
+import { Calendar, Clock, Plus, Stethoscope, User, Building2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { isSoftlocked } from "@/lib/softlock";
@@ -14,6 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -28,6 +36,8 @@ import { getDoctorsBySpecialty } from "@/lib/api/admin-doctors.functions";
 import { getDoctorSchedule } from "@/lib/api/doctor-schedule.functions";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { generateSlots } from "@/lib/slots";
+import { formatArPhone, toWaLink } from "@/lib/phone";
+import { toastError } from "@/lib/toastError";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Mi panel · CAIF" }] }),
   component: Dashboard,
@@ -56,7 +66,7 @@ function Dashboard() {
       toast.success("Turno cancelado");
       refetch();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al cancelar el turno");
+      toastError(err, "Error al cancelar el turno");
       refetch();
     }
   };
@@ -223,13 +233,13 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
 
   const { data: schedules } = useQuery({
     queryKey: ["schedules", doctorId],
-    enabled: !!doctorId,
+    enabled: !!doctorId && !doctor?.directBooking,
     queryFn: () => getDoctorSchedule({ data: { doctorId } }),
   });
 
   const { data: dayAppts, isFetching: isFetchingDayAppts } = useQuery({
     queryKey: ["day-appts", doctorId, date],
-    enabled: !!doctorId && !!date,
+    enabled: !!doctorId && !!date && !doctor?.directBooking,
     queryFn: () => getDayAppointments({ data: { doctorId, date } }),
   });
 
@@ -291,7 +301,7 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
       setSlot("");
       onBooked();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al reservar el turno");
+      toastError(e, "Error al reservar el turno");
     }
     setSaving(false);
   };
@@ -355,16 +365,18 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/50 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-elegant overflow-y-auto max-h-[85vh]">
-        <h3 className="font-display text-2xl">
-          {step === "form" ? "Nuevo turno" : "Confirmá tu turno"}
-        </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {step === "form"
-            ? "Elegí especialidad, profesional y horario"
-            : "Revisá los datos antes de finalizar la reserva"}
-        </p>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl">
+            {step === "form" ? "Nuevo turno" : "Confirmá tu turno"}
+          </DialogTitle>
+          <DialogDescription>
+            {step === "form"
+              ? "Elegí especialidad, profesional y horario"
+              : "Revisá los datos antes de finalizar la reserva"}
+          </DialogDescription>
+        </DialogHeader>
         {step === "form" ? (
           <div className="mt-5 space-y-4">
             <div>
@@ -444,45 +456,75 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
                 </div>
               </div>
             )}
-            {schedules && schedules.length > 0 && (
-              <div>
-                <Label>Horarios de atención</Label>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((name, i) => {
-                    const active = schedules.some((s) => s.weekday === i);
-                    return (
-                      <span
-                        key={i}
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          active
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-muted text-muted-foreground opacity-40"
-                        }`}
-                      >
-                        {name}
-                      </span>
-                    );
-                  })}
-                </div>
+            {doctor?.directBooking ? (
+              <div className="rounded-xl border border-teal/30 bg-teal/5 p-4 space-y-2">
+                <p className="text-sm font-medium">
+                  Este profesional coordina los turnos por WhatsApp.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Escribile directamente para coordinar tu turno
+                  {specialty ? ` de ${specialty.name}` : ""}.
+                </p>
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Número: </span>
+                  {formatArPhone(doctor.user?.phone ?? "")}
+                </p>
+                <Button asChild className="mt-2 w-full">
+                  <a
+                    href={toWaLink(
+                      doctor.user?.phone ?? "",
+                      `Hola, quisiera coordinar un turno${specialty ? ` de ${specialty.name}` : ""}.`,
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" /> Coordinar por WhatsApp
+                  </a>
+                </Button>
               </div>
+            ) : (
+              <>
+                {schedules && schedules.length > 0 && (
+                  <div>
+                    <Label>Horarios de atención</Label>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((name, i) => {
+                        const active = schedules.some((s) => s.weekday === i);
+                        return (
+                          <span
+                            key={i}
+                            className={`rounded-full px-3 py-1 text-xs font-medium ${
+                              active
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-muted text-muted-foreground opacity-40"
+                            }`}
+                          >
+                            {name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <Label>Fecha</Label>
+                  <Input
+                    type="date"
+                    value={date}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => {
+                      setDate(e.target.value);
+                      setSlot("");
+                    }}
+                    disabled={!doctorId}
+                  />
+                </div>
+                <div>
+                  <Label>Horario disponible</Label>
+                  {availabilityContent}
+                </div>
+              </>
             )}
-            <div>
-              <Label>Fecha</Label>
-              <Input
-                type="date"
-                value={date}
-                min={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => {
-                  setDate(e.target.value);
-                  setSlot("");
-                }}
-                disabled={!doctorId}
-              />
-            </div>
-            <div>
-              <Label>Horario disponible</Label>
-              {availabilityContent}
-            </div>
           </div>
         ) : (
           <div className="mt-5 space-y-3 rounded-xl border border-border bg-surface p-4 text-sm">
@@ -515,18 +557,20 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
             <SummaryRow label="Dirección" value={CLINIC_ADDRESS} />
           </div>
         )}
-        <div className="mt-6 flex justify-end gap-2">
+        <DialogFooter>
           {step === "form" ? (
             <>
               <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancelar
+                {doctor?.directBooking ? "Cerrar" : "Cancelar"}
               </Button>
-              <Button
-                onClick={() => setStep("review")}
-                disabled={!specialtyId || !doctorId || !slot}
-              >
-                Continuar
-              </Button>
+              {!doctor?.directBooking && (
+                <Button
+                  onClick={() => setStep("review")}
+                  disabled={!specialtyId || !doctorId || !slot}
+                >
+                  Continuar
+                </Button>
+              )}
             </>
           ) : (
             <>
@@ -538,9 +582,9 @@ function BookAppointmentDialog({ onBooked }: { onBooked: () => void }) {
               </Button>
             </>
           )}
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

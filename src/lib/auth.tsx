@@ -3,9 +3,13 @@ import { authClient } from "./auth-client";
 
 export type AppRole = "paciente" | "medico" | "recepcionista" | "admin";
 
+type SessionData = NonNullable<Awaited<ReturnType<typeof authClient.getSession>>["data"]>;
+export type AuthUser = SessionData["user"];
+export type AuthSession = SessionData["session"];
+
 interface AuthContextValue {
-  user: any | null;
-  session: any | null;
+  user: AuthUser | null;
+  session: AuthSession | null;
   roles: AppRole[];
   loading: boolean;
   signOut: () => Promise<void>;
@@ -16,8 +20,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
-  const [session, setSession] = useState<any | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,10 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await authClient.getSession();
       if (data) {
-        const u = data.user as any;
-        setUser(u);
+        setUser(data.user);
         setSession(data.session);
-        setRoles([u.role as AppRole]);
+        setRoles([data.user.role as AppRole]);
       } else {
         setUser(null);
         setSession(null);

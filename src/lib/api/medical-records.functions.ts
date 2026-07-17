@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { medicalRecords, doctors, patients, user } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { requireDoctor, AuthError } from "./_guards";
+import { fileStorage } from "@/lib/storage.server";
 
 export const uploadMedicalRecord = createServerFn({ method: "POST" })
   .inputValidator(
@@ -33,6 +34,8 @@ export const uploadMedicalRecord = createServerFn({ method: "POST" })
       )
       .then((r) => r[0]?.maxVersion ?? 0);
 
+    const storagePath = await fileStorage.saveFile("records", Buffer.from(data.fileData, "base64"));
+
     const [record] = await db
       .insert(medicalRecords)
       .values({
@@ -40,7 +43,7 @@ export const uploadMedicalRecord = createServerFn({ method: "POST" })
         patientId: data.patientId,
         fileName: data.fileName,
         fileType: data.fileType,
-        fileData: data.fileData,
+        storagePath,
         fileSize: data.fileSize,
         recordVersion: lastVersion + 1,
       })
@@ -101,6 +104,7 @@ export const getRecordFile = createServerFn({ method: "POST" })
       columns: {
         doctorId: true,
         fileData: true,
+        storagePath: true,
         fileName: true,
         fileType: true,
         recordVersion: true,
@@ -108,7 +112,16 @@ export const getRecordFile = createServerFn({ method: "POST" })
     });
     if (!record) throw new Error("Ficha médica no encontrada");
     if (record.doctorId !== doctorId) throw new AuthError("FORBIDDEN", "No autorizado");
-    return record;
+    const fileData = record.storagePath
+      ? (await fileStorage.readStoredFile(record.storagePath)).toString("base64")
+      : record.fileData;
+    if (!fileData) throw new Error("Ficha médica sin archivo asociado");
+    return {
+      fileData,
+      fileName: record.fileName,
+      fileType: record.fileType,
+      recordVersion: record.recordVersion,
+    };
   });
 
 export const deleteMedicalRecord = createServerFn({ method: "POST" })
@@ -117,10 +130,11 @@ export const deleteMedicalRecord = createServerFn({ method: "POST" })
     const { doctorId } = await requireDoctor();
     const record = await db.query.medicalRecords.findFirst({
       where: eq(medicalRecords.id, data.recordId),
-      columns: { doctorId: true },
+      columns: { doctorId: true, storagePath: true },
     });
     if (!record) throw new Error("Ficha médica no encontrada");
     if (record.doctorId !== doctorId) throw new AuthError("FORBIDDEN", "No autorizado");
     await db.delete(medicalRecords).where(eq(medicalRecords.id, data.recordId));
+    if (record.storagePath) await fileStorage.deleteStoredFile(record.storagePath);
     return { success: true };
   });

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { doctorSchedules, doctors } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireDoctor } from "./_guards";
+import { isValidArPhone } from "@/lib/phone";
 
 export const updateMyInsurance = createServerFn({ method: "POST" })
   .inputValidator(
@@ -126,6 +127,26 @@ export const updateMyWhatsappPreference = createServerFn({ method: "POST" })
     await db
       .update(doctors)
       .set({ whatsappNotifications: data.enabled })
+      .where(eq(doctors.id, doctorId));
+    return { success: true };
+  });
+
+export const updateMyDirectBooking = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      enabled: z.boolean(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { session, doctorId } = await requireDoctor();
+    if (data.enabled && !isValidArPhone(session.user.phone)) {
+      throw new Error(
+        "Tu teléfono no tiene un formato válido. Corregilo en tu perfil antes de activar WhatsApp directo.",
+      );
+    }
+    await db
+      .update(doctors)
+      .set({ directBooking: data.enabled })
       .where(eq(doctors.id, doctorId));
     return { success: true };
   });

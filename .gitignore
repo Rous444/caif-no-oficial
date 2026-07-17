@@ -21,6 +21,9 @@ whatsapp-session/
 .wwebjs_cache/
 .wwebjs_auth/
 
+# Local file storage (Plan 08) — en prod vive en el disco de Render (/var/data)
+.data/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

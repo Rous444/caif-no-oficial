@@ -28,7 +28,7 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { AppRole } from "@/lib/auth";
+import type { AppRole, AuthUser } from "@/lib/auth";
 
 import heroImg from "@/assets/clinic-hero.jpg";
 import g1 from "@/assets/clinic-1.jpg";
@@ -56,7 +56,7 @@ const iconMap: Record<string, typeof Stethoscope> = {
   Eye,
 };
 
-export function Hero({ user, roles }: { user: any | null; roles: AppRole[] }) {
+export function Hero({ user, roles }: { user: AuthUser | null; roles: AppRole[] }) {
   const isAuthed = !!user;
   const role = roles[0];
 
